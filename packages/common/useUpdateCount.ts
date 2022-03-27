@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParwise } from "./useParwise";
+import { usePrevious } from "./usePrevious";
 import { useUpdateEffect } from "./useUpdateEffect";
 
 /**
@@ -11,22 +11,22 @@ import { useUpdateEffect } from "./useUpdateEffect";
  */
 export function useUpdateCount<T>(state: T, options?: {deep: boolean}) {
   const[count, setCount] = useState(0);
-  const [current, before] = useParwise(state);
+  const before = usePrevious(state);
 
   useUpdateEffect(() => {
     if(options?.deep) {
       let changed: boolean;
-      for(let key in current) {
-        if(current[key] !== before[key]) {
+      for(let key in state) {
+        if(state[key] !== before[key]) {
           changed = true;
           break;
         }
       }
       changed && setCount(v => v + 1)
     } else {
-      current !== before && setCount(v => v + 1)
+      state !== before && setCount(v => v + 1)
     }
-  }, [current, before])
+  }, [state, before])
 
   return count
 }
