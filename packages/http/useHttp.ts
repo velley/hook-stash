@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useReactive } from "../common/useReactive";
 import { useServiceHook } from "../di/useServiceHook";
 
 const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
@@ -9,6 +8,12 @@ const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
   reqData: {}
 }
 
+/**
+ * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入提供自定义请求方法覆盖
+ * @param url 
+ * @param options 
+ * @returns 
+ */
 export function useHttp<T>(
   url: string, options: Partial<RequestOptions> = {}
 ): [(query?: any) => Promise<void | T>, T, HttpState, any] {

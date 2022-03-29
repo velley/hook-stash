@@ -1,7 +1,12 @@
 
 import { useState, useEffect } from 'react';
 
-export function useCountDown(endTime: number) {
+/**
+ * @description 倒计时hook函数
+ * @param endTime 结束时间
+ * @param startTime 开始时间
+ */
+export function useCountDown(endTime: number, startTime?: number) {
   const [time, setTime] = useState({
     day: 0,
     hour: 0,

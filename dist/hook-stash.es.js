@@ -1,3 +1,4 @@
+import { jsx } from 'react/jsx-runtime';
 import React, { createContext, useContext, useRef, useCallback, useState, useEffect } from 'react';
 
 const SERVICE_CONTEXT = createContext(null);
@@ -23,8 +24,7 @@ function createServiceComponent(Comp, hooks) {
             if (CACHE_MAP[hook.token])
                 delete CACHE_MAP[hook.token];
         });
-        return (React.createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
-            React.createElement(Comp, { ...props })));
+        return (jsx(SERVICE_CONTEXT.Provider, { value: dependsMap, children: jsx(Comp, { ...props }) }));
     });
 }
 
@@ -74,15 +74,17 @@ function useDebounceCallback(callback, deps, debounceTime) {
 }
 
 /**
- * @description 将最近两次变化的值并返回
- * @param value s状态变量（建议为useState函数返回的变量）
- * @returns 0-当前值 1-上一个值
+ * @description 将最近两次变化的值并返回(只有输入值变化时，返回值才会相应地更新)
+ * @param state 状态变量（建议为useState函数返回的变量）
+ * @returns 上一个值
  */
 function usePrevious(state) {
     const prevRef = useRef();
     const curRef = useRef();
-    prevRef.current = curRef.current;
-    curRef.current = state;
+    if (curRef.current !== state) {
+        prevRef.current = curRef.current;
+        curRef.current = state;
+    }
     return prevRef.current;
 }
 
@@ -122,7 +124,7 @@ function useReactive(state = {}) {
 }
 
 /**
- * @description 状态更新时的副作用函数（忽略组件第一次渲染后的副作用）
+ * @description 依赖值更新时执行副作用函数（忽略组件第一次渲染后的副作用），并将每个依赖上一次变更的值传给副作用函数
  * @param callback 要执行的回调函数
  * @param deps 状态依赖
  */
@@ -140,5 +142,22 @@ function useUpdateEffect(callback, deps) {
     }, deps);
 }
 
-export { createServiceComponent, useDebounceCallback, usePrevious, useReactive, useRefState, useServiceHook, useUpdateEffect };
+/**
+ * @description 依赖值更新时执行的副作用函数，并将函数上一次调用时的所有依赖值传给当前调用(注意与useUpdateEffect的区别)
+ * @param callback 要执行的回调函数
+ * @param deps 状态依赖
+ */
+function useWatchEffect(callback, deps) {
+    const runCount = useRef(0);
+    const caches = useRef([]);
+    useEffect(() => {
+        caches.current.push(deps);
+        runCount.current++;
+        if (runCount.current === 1)
+            return;
+        return callback(caches.current.shift());
+    }, deps);
+}
+
+export { createServiceComponent, useDebounceCallback, usePrevious, useReactive, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map
