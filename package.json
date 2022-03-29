@@ -2,9 +2,18 @@
   "name": "hook-stash",
   "version": "0.0.1",
   "description": "基于react的常用hook集合",
-  "main": "index.ts",
+  "main": "dist/hook-stash.umd.js",
+  "module": "dist/hook-stash.es.js",
+  "typings": "dist/types/packages/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/hook-stash.es.js",
+      "require": "./dist/hook-stash.umd.js"
+    }
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup -c rollup.config.ts"
   },
   "author": "",
   "license": "ISC",
@@ -13,6 +22,13 @@
     "react": "^17.0.2"
   },
   "devDependencies": {
-    "rollup": "^2.70.1"
+    "lodash.camelcase": "^4.3.0",
+    "rollup": "^2.70.1",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-sourcemaps": "^0.6.3",
+    "rollup-plugin-typescript2": "^0.31.2",
+    "typescript": "^4.6.3"
   }
 }
