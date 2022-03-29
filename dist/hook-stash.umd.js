@@ -51,8 +51,110 @@
       }
   }
 
+  /**
+   * @description 防抖函数
+   * @param callback 初始回调函数
+   * @param deps 依赖值
+   * @param debounceTime 防抖时间
+   * @returns
+   */
+  function useDebounceCallback(callback, deps, debounceTime) {
+      let timer;
+      const timeRef = React.useRef(debounceTime);
+      const runner = React.useCallback(callback, deps);
+      const debouncer = (...params) => {
+          clearTimeout(timer);
+          timeRef.current = debounceTime;
+          const runTimeout = () => {
+              return setTimeout(() => {
+                  if (timeRef.current <= 0) {
+                      runner(...params);
+                  }
+                  else {
+                      timeRef.current = timeRef.current - 1000;
+                      runTimeout();
+                  }
+              }, 1000);
+          };
+          timer = runTimeout();
+      };
+      return debouncer;
+  }
+
+  /**
+   * @description 将最近两次变化的值并返回
+   * @param value s状态变量（建议为useState函数返回的变量）
+   * @returns 0-当前值 1-上一个值
+   */
+  function usePrevious(state) {
+      const prevRef = React.useRef();
+      const curRef = React.useRef();
+      prevRef.current = curRef.current;
+      curRef.current = state;
+      return prevRef.current;
+  }
+
+  /**
+   * @description 使用引用类型的状态变量，并返回状态值和状态变更函数
+   * @param refState
+   * @returns
+   */
+  function useRefState(refState) {
+      const [state, setState] = React.useState(refState);
+      const setRefState = (newV) => {
+          setState(oldV => ({ ...oldV, ...newV }));
+      };
+      return [state, setRefState];
+  }
+
+  /**
+   * @function 将普通对象变为由Proxy包装的代理对象，更新对象中的属性值时，会自动触发setState方法并引起函数式组件重新执行
+   * @param state 初始对象
+   * @returns proxy 代理对象
+   */
+  function useReactive(state = {}) {
+      const [pState, setState] = useRefState(state);
+      const proxy = new Proxy(pState, {
+          set(target, prop, value) {
+              if (target[prop] !== value) {
+                  const nv = { [prop]: value };
+                  setState(nv);
+              }
+              return true;
+          },
+          get(obj, prop) {
+              return obj[prop];
+          }
+      });
+      return proxy;
+  }
+
+  /**
+   * @description 状态更新时的副作用函数（忽略组件第一次渲染后的副作用）
+   * @param callback 要执行的回调函数
+   * @param deps 状态依赖
+   */
+  function useUpdateEffect(callback, deps) {
+      const counter = React.useRef(0);
+      const changesRef = React.useRef([]);
+      deps.forEach((dep, index) => {
+          changesRef.current[index] = usePrevious(dep);
+      });
+      React.useEffect(() => {
+          counter.current++;
+          if (counter.current == 1)
+              return;
+          return callback(changesRef.current);
+      }, deps);
+  }
+
   exports.createServiceComponent = createServiceComponent;
+  exports.useDebounceCallback = useDebounceCallback;
+  exports.usePrevious = usePrevious;
+  exports.useReactive = useReactive;
+  exports.useRefState = useRefState;
   exports.useServiceHook = useServiceHook;
+  exports.useUpdateEffect = useUpdateEffect;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 

@@ -13,13 +13,15 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "demo": "vite",
     "build": "rollup -c rollup.config.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@types/react": "^17.0.40",
-    "react": "^17.0.2"
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
   },
   "devDependencies": {
     "lodash.camelcase": "^4.3.0",
@@ -29,6 +31,8 @@
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-sourcemaps": "^0.6.3",
     "rollup-plugin-typescript2": "^0.31.2",
-    "typescript": "^4.6.3"
+    "typescript": "^4.6.3",
+    "@vitejs/plugin-react": "^1.0.7",
+    "vite": "^2.8.0"
   }
 }
