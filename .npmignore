@@ -1,5 +1,5 @@
-domain
-example
-packages
-index.html
+/domain
+/example
+/packages
+/index.html
 node_modules

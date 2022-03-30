@@ -16,7 +16,7 @@ const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
  */
 export function useHttp<T>(
   url: string, options: Partial<RequestOptions> = {}
-): [(query?: any) => Promise<void | T>, T, HttpState, any] {
+): [T, (query?: any) => Promise<void | T>, HttpState, any] {
 
   /** 设置请求配置以及上层组件注入进来的依赖项 */
   const localOption   = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), options, { url });
@@ -37,11 +37,17 @@ export function useHttp<T>(
     })
     .then(options => {
       let reqData = {...options.reqData, ...query};
-      let url = options.url;
       if(customeReq) {
-        return customeReq(url, {...options, reqData})
+        return customeReq(options.url, {...options, reqData})
       } else {
-        return fetch(url, {...options, body: JSON.stringify(options.reqData)})
+        if(['GET', 'HEAD'].includes(options.method)) {
+          const searchKeys = `?${objectToUrlSearch(reqData)}`;
+          options.url += searchKeys;  
+        } else {
+          options.body = JSON.stringify(reqData);
+          delete options.reqData;
+        }
+        return fetch(options.url, options)
       }
     })
     .then(response => {
@@ -69,5 +75,15 @@ export function useHttp<T>(
     if(options.auto) request()
   }, [])
 
-  return [request, res, state, err]
+  return [res, request, state, err]
 } 
+
+function objectToUrlSearch(obj: object) {
+  console.log(obj)
+  if(!obj) return '';
+  let str = '';
+  for(let key in obj) {
+    str += `${key}=${obj[key]}&`
+  }
+  return str
+}

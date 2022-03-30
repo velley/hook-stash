@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useRef, useCallback, useState, useEffect } from 'react';
+import React, { createContext, useContext, useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from 'react';
 
 const SERVICE_CONTEXT = createContext(null);
 const CACHE_MAP = {};
@@ -24,7 +24,7 @@ function createServiceComponent(Comp, hooks) {
                 delete CACHE_MAP[hook.token];
         });
         return (React.createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
-            React.createElement(Comp, { ...props })));
+            React.createElement(Comp, Object.assign({}, props))));
     });
 }
 
@@ -86,7 +86,7 @@ function usePrevious(state) {
 function useRefState(refState) {
     const [state, setState] = useState(refState);
     const setRefState = (newV) => {
-        setState(oldV => ({ ...oldV, ...newV }));
+        setState(oldV => (Object.assign(Object.assign({}, oldV), newV)));
     };
     return [state, setRefState];
 }
@@ -140,8 +140,12 @@ function useWatchEffect(callback, deps) {
     }, deps);
 }
 
+/** HTTP拦截器token */
 const HTTP_INTERCEPT = Symbol('供useHttp使用的请求拦截器');
+/** 自定义HTTP函数token */
 const CUSTOME_REQUEST = Symbol('自定义请求函数，以覆盖默认的fetch函数');
+/** Paging分页请求token */
+const PAGING_SETTING = Symbol('提供全局分页配置');
 
 const DEFAULT_HTTP_OPTIONS = {
     auto: true,
@@ -166,25 +170,32 @@ function useHttp(url, options = {}) {
     const request = (query = {}) => {
         setState('pending');
         return new Promise(resolve => {
-            if (intercept?.requestIntercept) {
+            if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
                 intercept.requestIntercept(localOption).then(final => resolve(final));
             }
             else
                 resolve(localOption);
         })
             .then(options => {
-            let reqData = { ...options.reqData, ...query };
-            let url = options.url;
+            let reqData = Object.assign(Object.assign({}, options.reqData), query);
             if (customeReq) {
-                return customeReq(url, { ...options, reqData });
+                return customeReq(options.url, Object.assign(Object.assign({}, options), { reqData }));
             }
             else {
-                return fetch(url, { ...options, body: JSON.stringify(options.reqData) });
+                if (['GET', 'HEAD'].includes(options.method)) {
+                    const searchKeys = `?${objectToUrlSearch(reqData)}`;
+                    options.url += searchKeys;
+                }
+                else {
+                    options.body = JSON.stringify(reqData);
+                    delete options.reqData;
+                }
+                return fetch(options.url, options);
             }
         })
             .then(response => {
             const res = response;
-            const resIntercept = intercept?.responseIntercept;
+            const resIntercept = intercept === null || intercept === void 0 ? void 0 : intercept.responseIntercept;
             if (customeReq) {
                 return resIntercept ? resIntercept(res) : res;
             }
@@ -207,8 +218,124 @@ function useHttp(url, options = {}) {
         if (options.auto)
             request();
     }, []);
-    return [request, res, state, err];
+    return [res, request, state, err];
+}
+function objectToUrlSearch(obj) {
+    console.log(obj);
+    if (!obj)
+        return '';
+    let str = '';
+    for (let key in obj) {
+        str += `${key}=${obj[key]}&`;
+    }
+    return str;
 }
 
-export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePrevious, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
+const LocalPagingSetting = {
+    method: 'POST',
+    sizeKey: 'pageSize',
+    indexKey: 'pageNo',
+    size: 10,
+    start: 1,
+    scrollLoading: true,
+    dataPlucker: res => res.data,
+    totalPlucker: res => (res === null || res === void 0 ? void 0 : res.total) || 0
+};
+function usePaging(url, querys = {}, localSetting = {}) {
+    /** 初始化分页请求配置 */
+    const globalSetting = useServiceHook(PAGING_SETTING, 'optional');
+    const setting = Object.assign(Object.assign(Object.assign({}, LocalPagingSetting), (globalSetting || {})), localSetting);
+    /** 初始化条件查询对象 */
+    const querysRef = useRef(querys);
+    /** 初始化分页信息 */
+    const pageRef = useRef({});
+    useLayoutEffect(() => {
+        pageRef.current.target = setting.start;
+        pageRef.current[setting['indexKey']] = setting.start;
+        pageRef.current[setting['sizeKey']] = setting.size;
+        !pageRef.current.hasOwnProperty('__index') &&
+            Object.defineProperty(pageRef.current, '__index', {
+                get: () => pageRef.current[setting['indexKey']],
+                set: (num) => { pageRef.current[setting['indexKey']] = num; }
+            });
+        !pageRef.current.hasOwnProperty('__size') &&
+            Object.defineProperty(pageRef.current, '__size', {
+                get: () => pageRef.current[setting['sizeKey']]
+            });
+    }, []);
+    /** 定义分页请求逻辑 */
+    const [res, request, httpState] = useHttp(url, Object.assign(Object.assign({}, setting), { auto: false }));
+    const loadData = () => {
+        if (httpState === 'pending')
+            return;
+        return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }));
+    };
+    const refresh = (param = {}) => {
+        querysRef.current = Object.assign(Object.assign(Object.assign({}, querys), querysRef.current), param);
+        pageRef.current.target = setting.start;
+        loadData();
+    };
+    const reset = () => {
+        querysRef.current = querys;
+        pageRef.current.target = setting.start;
+        loadData();
+    };
+    const nextPage = () => {
+        if (pagingState === 'fulled')
+            return;
+        pageRef.current.target = pageRef.current.__index + 1;
+        loadData();
+    };
+    useEffect(() => {
+        if (setting.auto)
+            loadData();
+    }, []);
+    /** 根据请求结果设置分页数据 */
+    const currentPagingData = useMemo(() => res ? setting.dataPlucker(res) : [], [res]);
+    const concatedRef = useRef([]);
+    useUpdateEffect(() => {
+        httpState === 'success' && (pageRef.current.__index = pageRef.current.target); // 只有在请求成功时才能将当前页index值更新为目标页target 
+    }, [httpState]);
+    useUpdateEffect(() => {
+        if (pageRef.current.target === setting.start) {
+            concatedRef.current = currentPagingData;
+        }
+        else {
+            if (setting.scrollLoading)
+                concatedRef.current = concatedRef.current.concat(currentPagingData);
+        }
+    }, [currentPagingData]);
+    useUpdateEffect(() => {
+        pageRef.current.total = setting.totalPlucker(res);
+    }, [res]);
+    /** 根据请求结果设置分页请求状态 */
+    const pagingState = useMemo(() => {
+        switch (httpState) {
+            default:
+                return httpState;
+            case 'pending':
+                if (pageRef.current.target === setting.start && (currentPagingData === null || currentPagingData === void 0 ? void 0 : currentPagingData.length)) {
+                    return 'refreshing';
+                }
+                else {
+                    return 'pending';
+                }
+            case 'success':
+                if (pageRef.current.__index === setting.start && !currentPagingData.length)
+                    return 'empty';
+                if (currentPagingData.length < pageRef.current.__size)
+                    return 'fulled';
+                if (concatedRef.current.length >= pageRef.current.total)
+                    return 'fulled';
+                return 'success';
+        }
+    }, [httpState]);
+    return [
+        setting.scrollLoading ? concatedRef.current : currentPagingData,
+        { refresh, reset, nextPage },
+        pagingState
+    ];
+}
+
+export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map

@@ -7,6 +7,7 @@ export * from './common/useHistoryState';
 export * from './common/useUpdateEffect';
 export * from './common/useWatchEffect';
 export * from './http/useHttp';
+export * from './http/usePaging';
 /** interface */
 export * from '../domain/di';
 export * from '../domain/http';

@@ -7,7 +7,7 @@ export function useIntercept(): HttpIntercept {
     },
     responseIntercept: res => {
       return new Promise((resolve, reject) => {
-        resolve(res.data)
+        resolve(res)
       })
     }
   }

@@ -4,6 +4,7 @@ import { useWatchEffect } from '../packages/common/useWatchEffect';
 import './App.css';
 import { DemoA } from './component/demo-a';
 import { useIntercept } from './hooks/intercept';
+import { usePagingSetting } from './hooks/pagingSetting';
 
 function App() {
   const [count, setCount] = useState(0);
@@ -20,12 +21,13 @@ function App() {
 
   return (
     <div className="App">  
-      <button onClick={_ => setCount(v => v+1)}>count change</button>
+      {/* <button onClick={_ => setCount(v => v+1)}>count change</button>
       <button onClick={_ => setNum(v => v+1)}>num change</button>
       <p>{count}</p>
-      <p>{num}</p>
+      <p>{num}</p> */}
+      <DemoA></DemoA>
     </div>
   )
 }
 
-export default createServiceComponent(App, [useIntercept]) 
+export default createServiceComponent(App, [useIntercept, usePagingSetting]) 

@@ -5,4 +5,4 @@ import { HttpState, RequestOptions } from "../../domain/http";
  * @param options
  * @returns
  */
-export declare function useHttp<T>(url: string, options?: Partial<RequestOptions>): [(query?: any) => Promise<void | T>, T, HttpState, any];
+export declare function useHttp<T>(url: string, options?: Partial<RequestOptions>): [T, (query?: any) => Promise<void | T>, HttpState, any];
