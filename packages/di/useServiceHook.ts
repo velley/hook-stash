@@ -12,6 +12,6 @@ export function useServiceHook<C>(input: ServiceHook<C> | symbol, optional?: 'op
   } else if(optional === 'optional') {
     return null
   } else {
-    throw new Error(`未找到${name}的依赖值，请在上层servcieComponent中提供对应的service hook`)
+    throw new Error(`未找到${token.description}的依赖值，请在上层servcieComponent中提供对应的service hook`)
   }
 }

@@ -9,17 +9,17 @@ const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
 }
 
 /**
- * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入提供自定义请求方法覆盖
- * @param url 
- * @param options 
- * @returns 
+ * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
+ * @param url 请求地址，必传
+ * @param localOptions 请求配置项 选传
+ * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
  */
 export function useHttp<T>(
-  url: string, options: Partial<RequestOptions> = {}
+  url: string, localOptions: Partial<RequestOptions> = {}
 ): [T, (query?: any) => Promise<void | T>, HttpState, any] {
 
-  /** 设置请求配置以及上层组件注入进来的依赖项 */
-  const localOption   = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), options, { url });
+  /** 设置请求配置以及上层组件注入进来的配置项 */
+  const options       = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
   const intercept     = useServiceHook<HttpIntercept>(HTTP_INTERCEPT, 'optional');
   const customeReq    = useServiceHook<RequesterFunc>(CUSTOME_REQUEST, 'optional');
 
@@ -32,13 +32,15 @@ export function useHttp<T>(
     setState('pending');
     return new Promise<RequestOptions>(resolve => {
       if(intercept?.requestIntercept) {
-        intercept.requestIntercept(localOption).then(final => resolve(final))
-      } else resolve(localOption)
+        intercept.requestIntercept(options).then(finalOptions => resolve(finalOptions))
+      } else {
+        resolve(options)
+      } 
     })
-    .then(options => {
+    .then(options_ => {
       let reqData = {...options.reqData, ...query};
       if(customeReq) {
-        return customeReq(options.url, {...options, reqData})
+        return customeReq(options_.url, {...options_, reqData})
       } else {
         if(['GET', 'HEAD'].includes(options.method)) {
           const searchKeys = `?${objectToUrlSearch(reqData)}`;
@@ -47,7 +49,7 @@ export function useHttp<T>(
           options.body = JSON.stringify(reqData);
           delete options.reqData;
         }
-        return fetch(options.url, options)
+        return fetch(options.url, options_)
       }
     })
     .then(response => {
@@ -65,7 +67,7 @@ export function useHttp<T>(
       return res as T;
     })
     .catch(err => {
-      console.log(err)
+      console.error(err)
       setState('failed');
       setErr(err);
     })

@@ -7,12 +7,12 @@ import { useCallback, useRef } from "react";
  * @param debounceTime 防抖时间
  * @returns debouncer 
  */
-export function useDebounceCallback<T extends []>(callback: (...params: T) => void, deps: unknown[], debounceTime: number) {
+export function useDebounceCallback(callback: (...params: any) => void, deps: unknown[], debounceTime: number) {
 
   const timeRef = useRef<NodeJS.Timeout>(null);
   const runner  = useCallback(callback, deps);
 
-  const debouncer = (...params:T) => {
+  const debouncer = (...params: any) => {
     clearTimeout(timeRef.current);
     const runTimeout = () => {
       return setTimeout(() => { runner(...params) }, debounceTime)
