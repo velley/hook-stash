@@ -1,35 +1,29 @@
 import { useEffect, useState } from 'react'
-import { createServiceComponent, useDebounceCallback, useUpdateEffect } from '../packages';
+import { createServiceComponent, usePrevious, useUpdateEffect } from '../packages';
+import { useWatchEffect } from '../packages/common/useWatchEffect';
 import './App.css';
 import { DemoA } from './component/demo-a';
 import { useIntercept } from './hooks/intercept';
 
 function App() {
   const [count, setCount] = useState(0);
-  const [num, setNum] = useState(10);
+  const [num, setNum] = useState(0)
+  const prev = usePrevious(count);
   
-  // useUpdateEffect(() => {
-  //   console.log('count change', count)
+  // console.log('prev', prev)
+  // useEffect(() => {
+  //   console.log('count - prev', count, prev);
   // }, [count])
-
-  // const hande = useDebounceCallback(() => {
-  //   console.log('debounce')
-  // }, [], 500)
-
-  useUpdateEffect((changes) => {
-    console.log(changes);
-    console.log(num, count)
-    return null
-  }, [num, count])
+  useWatchEffect((prevs) => {
+    console.log(prevs)
+  }, [count, num])
 
   return (
     <div className="App">  
-      <DemoA></DemoA>
-      <div>
-        <span onClick={_ => setCount(v => v+1)}>count:{count}</span> &nbsp;
-        <span onClick={_ => setNum(v => v-1)}>num:{num}</span>
-      </div>
-      {/* <button onClick={_ => hande()}>防抖按钮</button> */}
+      <button onClick={_ => setCount(v => v+1)}>count change</button>
+      <button onClick={_ => setNum(v => v+1)}>num change</button>
+      <p>{count}</p>
+      <p>{num}</p>
     </div>
   )
 }

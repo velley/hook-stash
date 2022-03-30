@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('react')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'react'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.index = {}, global.React));
-})(this, (function (exports, React) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('react/jsx-runtime'), require('react')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'react/jsx-runtime', 'react'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.index = {}, global.jsxRuntime, global.React));
+})(this, (function (exports, jsxRuntime, React) { 'use strict';
 
   function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
@@ -31,8 +31,7 @@
               if (CACHE_MAP[hook.token])
                   delete CACHE_MAP[hook.token];
           });
-          return (React__default["default"].createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
-              React__default["default"].createElement(Comp, { ...props })));
+          return (jsxRuntime.jsx(SERVICE_CONTEXT.Provider, { value: dependsMap, children: jsxRuntime.jsx(Comp, { ...props }) }));
       });
   }
 
@@ -82,15 +81,17 @@
   }
 
   /**
-   * @description 将最近两次变化的值并返回
-   * @param value s状态变量（建议为useState函数返回的变量）
-   * @returns 0-当前值 1-上一个值
+   * @description 将最近两次变化的值并返回(只有输入值变化时，返回值才会相应地更新)
+   * @param state 状态变量（建议为useState函数返回的变量）
+   * @returns 上一个值
    */
   function usePrevious(state) {
       const prevRef = React.useRef();
       const curRef = React.useRef();
-      prevRef.current = curRef.current;
-      curRef.current = state;
+      if (curRef.current !== state) {
+          prevRef.current = curRef.current;
+          curRef.current = state;
+      }
       return prevRef.current;
   }
 
@@ -130,7 +131,7 @@
   }
 
   /**
-   * @description 状态更新时的副作用函数（忽略组件第一次渲染后的副作用）
+   * @description 依赖值更新时执行副作用函数（忽略组件第一次渲染后的副作用），并将每个依赖上一次变更的值传给副作用函数
    * @param callback 要执行的回调函数
    * @param deps 状态依赖
    */
@@ -148,6 +149,23 @@
       }, deps);
   }
 
+  /**
+   * @description 依赖值更新时执行的副作用函数，并将函数上一次调用时的所有依赖值传给当前调用(注意与useUpdateEffect的区别)
+   * @param callback 要执行的回调函数
+   * @param deps 状态依赖
+   */
+  function useWatchEffect(callback, deps) {
+      const runCount = React.useRef(0);
+      const caches = React.useRef([]);
+      React.useEffect(() => {
+          caches.current.push(deps);
+          runCount.current++;
+          if (runCount.current === 1)
+              return;
+          return callback(caches.current.shift());
+      }, deps);
+  }
+
   exports.createServiceComponent = createServiceComponent;
   exports.useDebounceCallback = useDebounceCallback;
   exports.usePrevious = usePrevious;
@@ -155,6 +173,7 @@
   exports.useRefState = useRefState;
   exports.useServiceHook = useServiceHook;
   exports.useUpdateEffect = useUpdateEffect;
+  exports.useWatchEffect = useWatchEffect;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
