@@ -1,8 +1,8 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('react/jsx-runtime'), require('react')) :
-  typeof define === 'function' && define.amd ? define(['exports', 'react/jsx-runtime', 'react'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.index = {}, global.jsxRuntime, global.React));
-})(this, (function (exports, jsxRuntime, React) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('react')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'react'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.index = {}, global.React));
+})(this, (function (exports, React) { 'use strict';
 
   function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
@@ -31,7 +31,8 @@
               if (CACHE_MAP[hook.token])
                   delete CACHE_MAP[hook.token];
           });
-          return (jsxRuntime.jsx(SERVICE_CONTEXT.Provider, { value: dependsMap, children: jsxRuntime.jsx(Comp, { ...props }) }));
+          return (React__default["default"].createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
+              React__default["default"].createElement(Comp, { ...props })));
       });
   }
 
@@ -55,27 +56,17 @@
    * @param callback 初始回调函数
    * @param deps 依赖值
    * @param debounceTime 防抖时间
-   * @returns
+   * @returns debouncer
    */
   function useDebounceCallback(callback, deps, debounceTime) {
-      let timer;
-      const timeRef = React.useRef(debounceTime);
+      const timeRef = React.useRef(null);
       const runner = React.useCallback(callback, deps);
       const debouncer = (...params) => {
-          clearTimeout(timer);
-          timeRef.current = debounceTime;
+          clearTimeout(timeRef.current);
           const runTimeout = () => {
-              return setTimeout(() => {
-                  if (timeRef.current <= 0) {
-                      runner(...params);
-                  }
-                  else {
-                      timeRef.current = timeRef.current - 1000;
-                      runTimeout();
-                  }
-              }, 1000);
+              return setTimeout(() => { runner(...params); }, debounceTime);
           };
-          timer = runTimeout();
+          timeRef.current = runTimeout();
       };
       return debouncer;
   }
@@ -109,25 +100,16 @@
   }
 
   /**
-   * @function 将普通对象变为由Proxy包装的代理对象，更新对象中的属性值时，会自动触发setState方法并引起函数式组件重新执行
-   * @param state 初始对象
-   * @returns proxy 代理对象
+   * @description 保存状态的历史变化记录
+   * @param state 状态变量
+   * @returns state历史值，最新值在末尾
    */
-  function useReactive(state = {}) {
-      const [pState, setState] = useRefState(state);
-      const proxy = new Proxy(pState, {
-          set(target, prop, value) {
-              if (target[prop] !== value) {
-                  const nv = { [prop]: value };
-                  setState(nv);
-              }
-              return true;
-          },
-          get(obj, prop) {
-              return obj[prop];
-          }
-      });
-      return proxy;
+  function useHistoryState(state) {
+      const [logs, setLogs] = React.useState([]);
+      React.useEffect(() => {
+          setLogs(logs => logs.concat([state]));
+      }, [state]);
+      return logs;
   }
 
   /**
@@ -166,10 +148,85 @@
       }, deps);
   }
 
+  const HTTP_INTERCEPT = Symbol('供useHttp使用的请求拦截器');
+  const CUSTOME_REQUEST = Symbol('自定义请求函数，以覆盖默认的fetch函数');
+
+  const DEFAULT_HTTP_OPTIONS = {
+      auto: true,
+      method: 'GET',
+      reqData: {}
+  };
+  /**
+   * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入提供自定义请求方法覆盖
+   * @param url
+   * @param options
+   * @returns
+   */
+  function useHttp(url, options = {}) {
+      /** 设置请求配置以及上层组件注入进来的依赖项 */
+      const localOption = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), options, { url });
+      const intercept = useServiceHook(HTTP_INTERCEPT, 'optional');
+      const customeReq = useServiceHook(CUSTOME_REQUEST, 'optional');
+      /** 定义http请求的相关状态变量 */
+      const [res, setRes] = React.useState();
+      const [err, setErr] = React.useState();
+      const [state, setState] = React.useState('ready');
+      const request = (query = {}) => {
+          setState('pending');
+          return new Promise(resolve => {
+              if (intercept?.requestIntercept) {
+                  intercept.requestIntercept(localOption).then(final => resolve(final));
+              }
+              else
+                  resolve(localOption);
+          })
+              .then(options => {
+              let reqData = { ...options.reqData, ...query };
+              let url = options.url;
+              if (customeReq) {
+                  return customeReq(url, { ...options, reqData });
+              }
+              else {
+                  return fetch(url, { ...options, body: JSON.stringify(options.reqData) });
+              }
+          })
+              .then(response => {
+              const res = response;
+              const resIntercept = intercept?.responseIntercept;
+              if (customeReq) {
+                  return resIntercept ? resIntercept(res) : res;
+              }
+              else {
+                  return res.json().then((re) => resIntercept ? resIntercept(re) : re);
+              }
+          })
+              .then(res => {
+              setRes(res);
+              setState('success');
+              return res;
+          })
+              .catch(err => {
+              console.log(err);
+              setState('failed');
+              setErr(err);
+          });
+      };
+      React.useEffect(() => {
+          if (options.auto)
+              request();
+      }, []);
+      return [request, res, state, err];
+  }
+
+  exports.CACHE_MAP = CACHE_MAP;
+  exports.CUSTOME_REQUEST = CUSTOME_REQUEST;
+  exports.HTTP_INTERCEPT = HTTP_INTERCEPT;
+  exports.SERVICE_CONTEXT = SERVICE_CONTEXT;
   exports.createServiceComponent = createServiceComponent;
   exports.useDebounceCallback = useDebounceCallback;
+  exports.useHistoryState = useHistoryState;
+  exports.useHttp = useHttp;
   exports.usePrevious = usePrevious;
-  exports.useReactive = useReactive;
   exports.useRefState = useRefState;
   exports.useServiceHook = useServiceHook;
   exports.useUpdateEffect = useUpdateEffect;

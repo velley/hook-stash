@@ -1,9 +1,0 @@
-{
-  "/miniapp": {
-    "target": "https://www.fastmock.site",
-    "changeOrigin": true,
-    "pathRewrite": {
-      "^/miniapp": "/mock/bb734d5f2483813f0f475d8f23bfb431/api/miniapp"
-    }
-  }
-}

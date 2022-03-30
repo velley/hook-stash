@@ -1,4 +1,3 @@
-import { jsx } from 'react/jsx-runtime';
 import React, { createContext, useContext, useRef, useCallback, useState, useEffect } from 'react';
 
 const SERVICE_CONTEXT = createContext(null);
@@ -24,7 +23,8 @@ function createServiceComponent(Comp, hooks) {
             if (CACHE_MAP[hook.token])
                 delete CACHE_MAP[hook.token];
         });
-        return (jsx(SERVICE_CONTEXT.Provider, { value: dependsMap, children: jsx(Comp, { ...props }) }));
+        return (React.createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
+            React.createElement(Comp, { ...props })));
     });
 }
 
@@ -48,27 +48,17 @@ function useServiceHook(input, optional) {
  * @param callback 初始回调函数
  * @param deps 依赖值
  * @param debounceTime 防抖时间
- * @returns
+ * @returns debouncer
  */
 function useDebounceCallback(callback, deps, debounceTime) {
-    let timer;
-    const timeRef = useRef(debounceTime);
+    const timeRef = useRef(null);
     const runner = useCallback(callback, deps);
     const debouncer = (...params) => {
-        clearTimeout(timer);
-        timeRef.current = debounceTime;
+        clearTimeout(timeRef.current);
         const runTimeout = () => {
-            return setTimeout(() => {
-                if (timeRef.current <= 0) {
-                    runner(...params);
-                }
-                else {
-                    timeRef.current = timeRef.current - 1000;
-                    runTimeout();
-                }
-            }, 1000);
+            return setTimeout(() => { runner(...params); }, debounceTime);
         };
-        timer = runTimeout();
+        timeRef.current = runTimeout();
     };
     return debouncer;
 }
@@ -102,25 +92,16 @@ function useRefState(refState) {
 }
 
 /**
- * @function 将普通对象变为由Proxy包装的代理对象，更新对象中的属性值时，会自动触发setState方法并引起函数式组件重新执行
- * @param state 初始对象
- * @returns proxy 代理对象
+ * @description 保存状态的历史变化记录
+ * @param state 状态变量
+ * @returns state历史值，最新值在末尾
  */
-function useReactive(state = {}) {
-    const [pState, setState] = useRefState(state);
-    const proxy = new Proxy(pState, {
-        set(target, prop, value) {
-            if (target[prop] !== value) {
-                const nv = { [prop]: value };
-                setState(nv);
-            }
-            return true;
-        },
-        get(obj, prop) {
-            return obj[prop];
-        }
-    });
-    return proxy;
+function useHistoryState(state) {
+    const [logs, setLogs] = useState([]);
+    useEffect(() => {
+        setLogs(logs => logs.concat([state]));
+    }, [state]);
+    return logs;
 }
 
 /**
@@ -159,5 +140,75 @@ function useWatchEffect(callback, deps) {
     }, deps);
 }
 
-export { createServiceComponent, useDebounceCallback, usePrevious, useReactive, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
+const HTTP_INTERCEPT = Symbol('供useHttp使用的请求拦截器');
+const CUSTOME_REQUEST = Symbol('自定义请求函数，以覆盖默认的fetch函数');
+
+const DEFAULT_HTTP_OPTIONS = {
+    auto: true,
+    method: 'GET',
+    reqData: {}
+};
+/**
+ * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入提供自定义请求方法覆盖
+ * @param url
+ * @param options
+ * @returns
+ */
+function useHttp(url, options = {}) {
+    /** 设置请求配置以及上层组件注入进来的依赖项 */
+    const localOption = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), options, { url });
+    const intercept = useServiceHook(HTTP_INTERCEPT, 'optional');
+    const customeReq = useServiceHook(CUSTOME_REQUEST, 'optional');
+    /** 定义http请求的相关状态变量 */
+    const [res, setRes] = useState();
+    const [err, setErr] = useState();
+    const [state, setState] = useState('ready');
+    const request = (query = {}) => {
+        setState('pending');
+        return new Promise(resolve => {
+            if (intercept?.requestIntercept) {
+                intercept.requestIntercept(localOption).then(final => resolve(final));
+            }
+            else
+                resolve(localOption);
+        })
+            .then(options => {
+            let reqData = { ...options.reqData, ...query };
+            let url = options.url;
+            if (customeReq) {
+                return customeReq(url, { ...options, reqData });
+            }
+            else {
+                return fetch(url, { ...options, body: JSON.stringify(options.reqData) });
+            }
+        })
+            .then(response => {
+            const res = response;
+            const resIntercept = intercept?.responseIntercept;
+            if (customeReq) {
+                return resIntercept ? resIntercept(res) : res;
+            }
+            else {
+                return res.json().then((re) => resIntercept ? resIntercept(re) : re);
+            }
+        })
+            .then(res => {
+            setRes(res);
+            setState('success');
+            return res;
+        })
+            .catch(err => {
+            console.log(err);
+            setState('failed');
+            setErr(err);
+        });
+    };
+    useEffect(() => {
+        if (options.auto)
+            request();
+    }, []);
+    return [request, res, state, err];
+}
+
+export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePrevious, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map
