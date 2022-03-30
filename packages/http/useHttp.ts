@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useReactive } from "../common/useReactive";
 import { useServiceHook } from "../di/useServiceHook";
 
 const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {

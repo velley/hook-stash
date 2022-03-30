@@ -1,6 +1,5 @@
 import { HttpIntercept, HTTP_INTERCEPT } from "../../domain/http";
 
-
 export function useIntercept(): HttpIntercept {
   return {
     requestIntercept: options => {

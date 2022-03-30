@@ -9,25 +9,15 @@ import { useCallback, useRef } from "react";
  */
 export function useDebounceCallback<T extends []>(callback: (...params: T) => void, deps: unknown[], debounceTime: number) {
 
-  let timer: any;
-  const timeRef = useRef(debounceTime);
-
-  const runner = useCallback(callback, deps);
+  const timeRef = useRef<NodeJS.Timeout>(null);
+  const runner  = useCallback(callback, deps);
 
   const debouncer = (...params:T) => {
-    clearTimeout(timer);
-    timeRef.current = debounceTime;    
+    clearTimeout(timeRef.current);
     const runTimeout = () => {
-      return setTimeout(() => {
-        if(timeRef.current <= 0) {
-          runner(...params);          
-        } else {
-          timeRef.current = timeRef.current - 1000;
-          runTimeout();
-        }        
-      }, 1000)
+      return setTimeout(() => { runner(...params) }, debounceTime)
     }
-    timer = runTimeout();
+    timeRef.current = runTimeout();
   }
 
   return debouncer;
