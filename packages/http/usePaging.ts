@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
+import { HttpState, PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
 import { useHttp } from "./useHttp";
 import { useUpdateEffect } from '../common/useUpdateEffect'
@@ -36,7 +36,7 @@ export function usePaging<T>(
   url: string,
   querys: object = {},
   localSetting: Partial<PagingSetting & RequestOptions>  = {}
-): [T[], PagingAction, PagingState] {
+): [T[], PagingAction, {pagingState: PagingState, httpState: HttpState}] {
 
   /** 初始化分页请求配置 */
   const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, 'optional');
@@ -118,18 +118,18 @@ export function usePaging<T>(
   const pagingState: PagingState = useMemo(() => {
     switch(httpState) {
       default:
-        return httpState;
+        return 'refreshing';
       case 'pending':
-        if(pageRef.current.target === setting.start && currentPagingData?.length) {
+        if(pageRef.current.target === setting.start) {
           return 'refreshing';
         } else {
-          return 'pending'
+          return 'loading'
         }
       case 'success':
-        if(pageRef.current.__index === setting.start && !currentPagingData.length) return 'empty';
+        if(pageRef.current.target === setting.start && !currentPagingData?.length) return 'empty';
         if(currentPagingData.length < pageRef.current.__size) return 'fulled';
         if(concatedRef.current.length >= pageRef.current.total) return 'fulled';
-        return 'success';
+        return 'unfulled';
     }
   }, [httpState])
   
@@ -137,6 +137,6 @@ export function usePaging<T>(
   return [    
     setting.scrollLoading ? concatedRef.current : currentPagingData,
     { refresh, reset, nextPage },    
-    pagingState
+    {pagingState, httpState}
   ]
 }

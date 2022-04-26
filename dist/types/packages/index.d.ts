@@ -6,6 +6,7 @@ export * from './common/useRefState';
 export * from './common/useHistoryState';
 export * from './common/useUpdateEffect';
 export * from './common/useWatchEffect';
+export * from './common/useUpdateCount';
 export * from './http/useHttp';
 export * from './http/usePaging';
 /** interface */

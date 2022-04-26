@@ -140,6 +140,34 @@ function useWatchEffect(callback, deps) {
     }, deps);
 }
 
+/**
+ * @description 记录状态的变化次数(第一次初始化时记为第0次)
+ * @param state 状态变量
+ * @param options
+ * deep: 是否为深度比较，state为对象时，会遍历其属性进行比较,全部相等时不会记为一次变化
+ * @returns
+ */
+function useUpdateCount(state, options) {
+    const [count, setCount] = useState(0);
+    const before = usePrevious(state);
+    useUpdateEffect(() => {
+        if (options === null || options === void 0 ? void 0 : options.deep) {
+            let changed;
+            for (let key in state) {
+                if (state[key] !== before[key]) {
+                    changed = true;
+                    break;
+                }
+            }
+            changed && setCount(v => v + 1);
+        }
+        else {
+            state !== before && setCount(v => v + 1);
+        }
+    }, [state, before]);
+    return count;
+}
+
 /** HTTP拦截器token */
 const HTTP_INTERCEPT = Symbol('供useHttp使用的请求拦截器');
 /** 自定义HTTP函数token */
@@ -312,30 +340,30 @@ function usePaging(url, querys = {}, localSetting = {}) {
     const pagingState = useMemo(() => {
         switch (httpState) {
             default:
-                return httpState;
+                return 'refreshing';
             case 'pending':
-                if (pageRef.current.target === setting.start && (currentPagingData === null || currentPagingData === void 0 ? void 0 : currentPagingData.length)) {
+                if (pageRef.current.target === setting.start) {
                     return 'refreshing';
                 }
                 else {
-                    return 'pending';
+                    return 'loading';
                 }
             case 'success':
-                if (pageRef.current.__index === setting.start && !currentPagingData.length)
+                if (pageRef.current.target === setting.start && !(currentPagingData === null || currentPagingData === void 0 ? void 0 : currentPagingData.length))
                     return 'empty';
                 if (currentPagingData.length < pageRef.current.__size)
                     return 'fulled';
                 if (concatedRef.current.length >= pageRef.current.total)
                     return 'fulled';
-                return 'success';
+                return 'unfulled';
         }
     }, [httpState]);
     return [
         setting.scrollLoading ? concatedRef.current : currentPagingData,
         { refresh, reset, nextPage },
-        pagingState
+        { pagingState, httpState }
     ];
 }
 
-export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useUpdateEffect, useWatchEffect };
+export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useUpdateCount, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map

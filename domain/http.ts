@@ -43,8 +43,8 @@ export interface PagingSetting<T = any> {
   totalPlucker: (res: any) => number;
 }
 
-/** 分页请求状态（基于HttpState扩展） */
-export type PagingState = HttpState | 'refreshing' | 'empty' | 'fulled';
+/** 分页请求状态） */
+export type PagingState = 'empty' | 'unfulled' | 'fulled' | 'refreshing' | 'loading';
 
 /** Paging分页请求token */
 export const PAGING_SETTING = Symbol('提供全局分页配置');
