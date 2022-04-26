@@ -1,17 +1,27 @@
 
 export interface AbstractControl<T = any> {
-  value: any;
-  touched: boolean;
-  dirty: boolean;
+  value: T;    
   status: 'VALID' | 'INVALID' | 'PENDING' | 'DISABLED';
-  parent: FormGroup | FormArray | null;
+  parent: FormGroupModel<T> | FormArrayModel<T> | null;
   validators: any[];
   syncValidators: any[];
-  addValidators: (fn: any) => void;
 }
 
-export interface FormGroup {
-
+export interface FormControlModel extends AbstractControl {
+  touched: boolean;
+  dirty: boolean;
 }
 
-export interface FormArray {}
+export interface FormGroupModel<T = any> extends AbstractControl{
+  readonly value: T;
+  setValue?: (val: T) => void;
+  setDisabled?: (state: boolean) => void;
+  controls: {
+    [P in keyof T]: AbstractControl<T[P]>;
+  }
+}
+
+export interface FormArrayModel<T = any> {
+  readonly value: T[];
+  controls: Array<AbstractControl<T>>;
+}
