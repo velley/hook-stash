@@ -1,45 +1,72 @@
-import { useRef } from "react";
+import { forwardRef, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { AbstractControl, FormArrayModel, FormGroupModel } from "../../domain/form";
 import { createServiceComponent } from "../di/createServiceComponent";
 import { useServiceHook } from "../di/useServiceHook";
 // import { AbstractControl } from "./abstractControl";
 
 interface FormGroupProps {
-  onChange: (val: any) => void;
+  onChange?: (val: any) => void;
+  onCreated?: (group: FormGroupModel) => void;
 }
 
 export const FORM_GROUP_CONTEXT = Symbol('')
 
 export function useFormGroupContext() {
-  const group = useRef< Partial<FormGroupModel>>({});
+  const group = useRef<FormGroupModel>();
 
-  function createFormGroup (parent: FormGroupModel | FormArrayModel, handles: any) {
-    group.current.parent = parent;
-    group.current.setValue = (val: any) => {
-      handles.onChange(val);
-    }
-    Object.defineProperty(group, 'value', {
+  useMemo(() => {
+    group.current = {} as FormGroupModel;
+    group.current.controls = {};
+    Object.defineProperty(group.current, 'value', {
       get: () => {
-  
+        const res = {};
+        for(let key in group.current.controls) {
+          res[key] = group.current.controls[key].value;
+        }
+        return res
       }
     })
+  }, [])
+
+  function createFormGroup (parent: FormGroupModel | FormArrayModel, handles?: any) {    
+    group.current.parent = parent;    
+    group.current.patchValue = (val: any) => {
+      // handles?.onChange(val);
+      const controls = group.current.controls;
+      for(let key in val) {
+        controls[key].setValue(val[key]);
+      }
+    }    
   }
-  return { group, createFormGroup }
+  return { group: group.current, createFormGroup }
 }
 
-useFormGroupContext.token = FORM_GROUP_CONTEXT;
+// useFormGroupContext.token = FORM_GROUP_CONTEXT;
 
+// const ForwadFormGroup = forwardRef((props, ref) => {
+
+// })
 
 
 export const FormGroup = createServiceComponent<FormGroupProps>(
   props => {
 
+    const { group: local_group, createFormGroup } = useServiceHook(useFormGroupContext);
+    const parent = useServiceHook(useFormGroupContext, {skipOne: true, optional: true});
 
-    const { group } = useServiceHook(useFormGroupContext);
+    useMemo(() => {
+      createFormGroup(parent?.group,);
+    }, [])
 
-    createFormGroup(group);
+    useEffect(() => {
+      props.onCreated?.(local_group);
+      console.log('loca', local_group, props)
+    }, [])
+    
 
     return <>{props.children}</>
   },
   [useFormGroupContext]
-)e44
+)
+
+// export const Form = forwardRef(FormGroup)

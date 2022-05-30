@@ -5,16 +5,17 @@ export interface AbstractControl<T = any> {
   parent: FormGroupModel<T> | FormArrayModel<T> | null;
   validators: any[];
   syncValidators: any[];
+  setValue?: (val: T) => void;
 }
 
-export interface FormControlModel extends AbstractControl {
+export interface FormControlModel<T = any> extends AbstractControl {
   touched: boolean;
   dirty: boolean;
 }
 
 export interface FormGroupModel<T = any> extends AbstractControl{
   readonly value: T;
-  setValue?: (val: T) => void;
+  patchValue?: (val: T) => void;
   setDisabled?: (state: boolean) => void;
   controls: {
     [P in keyof T]: AbstractControl<T[P]>;
