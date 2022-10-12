@@ -16,7 +16,7 @@ const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
  */
 export function useHttp<T>(
   url: string, localOptions: Partial<RequestOptions> = {}
-): [T, (query?: any) => Promise<void | T>, HttpState, any] {
+): [T | undefined, (query?: any) => Promise<void | T>, HttpState, any] {
 
   /** 设置请求配置以及上层组件注入进来的配置项 */
   const options       = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
@@ -66,10 +66,10 @@ export function useHttp<T>(
       setState('success');
       return res as T;
     })
-    .catch(err => {
-      console.error(err)
+    .catch(err => {      
       setState('failed');
       setErr(err);
+      throw new Error(err);
     })
   }
 
@@ -89,3 +89,4 @@ function objectToUrlSearch(obj: object) {
   }
   return str
 }
+

@@ -15,9 +15,9 @@ export function useUpdateCount<T>(state: T, options?: {deep: boolean}) {
 
   useUpdateEffect(() => {
     if(options?.deep) {
-      let changed: boolean;
+      let changed: boolean = false;
       for(let key in state) {
-        if(state[key] !== before[key]) {
+        if(state[key] !== before?.[key]) {
           changed = true;
           break;
         }

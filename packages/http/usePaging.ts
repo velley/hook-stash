@@ -5,6 +5,8 @@ import { useHttp } from "./useHttp";
 import { useUpdateEffect } from '../common/useUpdateEffect'
 
 interface PagingAction {
+  /** 刷新请求(分页重置，清除原有请求的查询参数querys)  */
+  fresh: (querys: object) => void;
   /** 刷新请求(分页重置，保留每次请求的查询参数querys) */
   refresh: (querys: object) => void;
   /** 重置请求(分页重置，清除历史查询参数querys，但保留初次调用时的querys) */
@@ -40,7 +42,7 @@ export function usePaging<T>(
 
   /** 初始化分页请求配置 */
   const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, 'optional');
-  const setting = {...LocalPagingSetting, ...(globalSetting || {}), ...localSetting};  
+  const setting = {...LocalPagingSetting, ...(globalSetting || {}), ...localSetting} as PagingSetting & RequestOptions;  
 
   /** 初始化条件查询对象 */
   const querysRef = useRef(querys);
@@ -70,6 +72,12 @@ export function usePaging<T>(
   const loadData = () => {
     if (httpState === 'pending') return;    
     return request({ ...querysRef.current, [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size })
+  }
+
+  const fresh = (param = {}) => {
+    querysRef.current = { ...querys, ...param };
+    pageRef.current.target = setting.start;
+    loadData();
   }
 
   const refresh = (param = {}) => {
@@ -136,7 +144,7 @@ export function usePaging<T>(
 
   return [    
     setting.scrollLoading ? concatedRef.current : currentPagingData,
-    { refresh, reset, nextPage },    
+    { fresh, refresh, reset, nextPage },    
     {pagingState, httpState}
   ]
 }

@@ -20,7 +20,7 @@ function createServiceComponent(Comp, hooks) {
         }
         /** 将service hooks遍历执行完毕后，需要立即清除在CACHE_MAP中缓存的依赖 */
         hooks.forEach(hook => {
-            if (CACHE_MAP[hook.token])
+            if (hook.token && CACHE_MAP[hook.token])
                 delete CACHE_MAP[hook.token];
         });
         return (React.createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
@@ -39,7 +39,7 @@ function useServiceHook(input, optional) {
         return null;
     }
     else {
-        throw new Error(`未找到${name}的依赖值，请在上层servcieComponent中提供对应的service hook`);
+        throw new Error(`未找到${token.description}的依赖值，请在上层servcieComponent中提供对应的service hook`);
     }
 }
 
@@ -152,9 +152,9 @@ function useUpdateCount(state, options) {
     const before = usePrevious(state);
     useUpdateEffect(() => {
         if (options === null || options === void 0 ? void 0 : options.deep) {
-            let changed;
+            let changed = false;
             for (let key in state) {
-                if (state[key] !== before[key]) {
+                if (state[key] !== (before === null || before === void 0 ? void 0 : before[key])) {
                     changed = true;
                     break;
                 }
@@ -181,14 +181,14 @@ const DEFAULT_HTTP_OPTIONS = {
     reqData: {}
 };
 /**
- * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入提供自定义请求方法覆盖
- * @param url
- * @param options
- * @returns
+ * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
+ * @param url 请求地址，必传
+ * @param localOptions 请求配置项 选传
+ * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
  */
-function useHttp(url, options = {}) {
-    /** 设置请求配置以及上层组件注入进来的依赖项 */
-    const localOption = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), options, { url });
+function useHttp(url, localOptions = {}) {
+    /** 设置请求配置以及上层组件注入进来的配置项 */
+    const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
     const intercept = useServiceHook(HTTP_INTERCEPT, 'optional');
     const customeReq = useServiceHook(CUSTOME_REQUEST, 'optional');
     /** 定义http请求的相关状态变量 */
@@ -199,15 +199,16 @@ function useHttp(url, options = {}) {
         setState('pending');
         return new Promise(resolve => {
             if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
-                intercept.requestIntercept(localOption).then(final => resolve(final));
+                intercept.requestIntercept(options).then(finalOptions => resolve(finalOptions));
             }
-            else
-                resolve(localOption);
+            else {
+                resolve(options);
+            }
         })
-            .then(options => {
+            .then(options_ => {
             let reqData = Object.assign(Object.assign({}, options.reqData), query);
             if (customeReq) {
-                return customeReq(options.url, Object.assign(Object.assign({}, options), { reqData }));
+                return customeReq(options_.url, Object.assign(Object.assign({}, options_), { reqData }));
             }
             else {
                 if (['GET', 'HEAD'].includes(options.method)) {
@@ -218,7 +219,7 @@ function useHttp(url, options = {}) {
                     options.body = JSON.stringify(reqData);
                     delete options.reqData;
                 }
-                return fetch(options.url, options);
+                return fetch(options.url, options_);
             }
         })
             .then(response => {
@@ -237,9 +238,9 @@ function useHttp(url, options = {}) {
             return res;
         })
             .catch(err => {
-            console.log(err);
             setState('failed');
             setErr(err);
+            throw new Error(err);
         });
     };
     useEffect(() => {
@@ -297,6 +298,11 @@ function usePaging(url, querys = {}, localSetting = {}) {
         if (httpState === 'pending')
             return;
         return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }));
+    };
+    const fresh = (param = {}) => {
+        querysRef.current = Object.assign(Object.assign({}, querys), param);
+        pageRef.current.target = setting.start;
+        loadData();
     };
     const refresh = (param = {}) => {
         querysRef.current = Object.assign(Object.assign(Object.assign({}, querys), querysRef.current), param);
@@ -360,7 +366,7 @@ function usePaging(url, querys = {}, localSetting = {}) {
     }, [httpState]);
     return [
         setting.scrollLoading ? concatedRef.current : currentPagingData,
-        { refresh, reset, nextPage },
+        { fresh, refresh, reset, nextPage },
         { pagingState, httpState }
     ];
 }
