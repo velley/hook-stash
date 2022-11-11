@@ -2,12 +2,6 @@ import { useEffect, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
 
-const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
-  auto: true,
-  method: 'GET',
-  reqData: {}
-}
-
 /**
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
  * @param url 请求地址，必传
@@ -18,8 +12,14 @@ export function useHttp<T>(
   url: string, localOptions: Partial<RequestOptions> = {}
 ): [T | undefined, (query?: any) => Promise<void | T>, HttpState, any] {
 
+  const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
+    auto: false,
+    method: 'GET',
+    reqData: {}
+  }
+
   /** 设置请求配置以及上层组件注入进来的配置项 */
-  const options       = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+  const options       = Object.assign(DEFAULT_HTTP_OPTIONS, localOptions, { url }) as RequestOptions;
   const intercept     = useServiceHook<HttpIntercept>(HTTP_INTERCEPT, 'optional');
   const customeReq    = useServiceHook<RequesterFunc>(CUSTOME_REQUEST, 'optional');
 
@@ -32,13 +32,13 @@ export function useHttp<T>(
     setState('pending');
     return new Promise<RequestOptions>(resolve => {
       if(intercept?.requestIntercept) {
-        intercept.requestIntercept(options).then(finalOptions => resolve(finalOptions))
+        intercept.requestIntercept({ ...options, reqData: {...options.reqData || {}, ...query} }).then(finalOptions => resolve(finalOptions))
       } else {
         resolve(options)
       } 
     })
     .then(options_ => {
-      let reqData = {...options.reqData, ...query};
+      let reqData = {...options_.reqData};
       if(customeReq) {
         return customeReq(options_.url, {...options_, reqData})
       } else {

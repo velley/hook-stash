@@ -2,7 +2,7 @@
 /** http拦截器函数 */
 export interface HttpIntercept {
   /** http请求拦截器 */
-  requestIntercept?: (request: RequestOptions) => Promise<RequestOptions>;
+  requestIntercept?: (request: Partial<RequestOptions>) => Promise<RequestOptions>;
   /** http响应拦截器 */
   responseIntercept?: (res: any) => Promise<any>;
 }
@@ -15,9 +15,9 @@ export interface RequesterFunc {
 /** 请求配置项 */
 export interface RequestOptions {
   url: string;
-  reqData: any;
-  auto: boolean;
   method: 'GET' | 'POST' | 'PUT' | 'HEAD' | 'DELETE';
+  reqData: any;
+  auto?: boolean;  
   headers: any;
   [prop: string]: any;
 }

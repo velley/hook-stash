@@ -183,11 +183,6 @@
   /** Paging分页请求token */
   const PAGING_SETTING = Symbol('提供全局分页配置');
 
-  const DEFAULT_HTTP_OPTIONS = {
-      auto: true,
-      method: 'GET',
-      reqData: {}
-  };
   /**
    * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
    * @param url 请求地址，必传
@@ -195,8 +190,13 @@
    * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
    */
   function useHttp(url, localOptions = {}) {
+      const DEFAULT_HTTP_OPTIONS = {
+          auto: true,
+          method: 'GET',
+          reqData: {}
+      };
       /** 设置请求配置以及上层组件注入进来的配置项 */
-      const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+      const options = Object.assign(DEFAULT_HTTP_OPTIONS, localOptions, { url });
       const intercept = useServiceHook(HTTP_INTERCEPT, 'optional');
       const customeReq = useServiceHook(CUSTOME_REQUEST, 'optional');
       /** 定义http请求的相关状态变量 */
@@ -207,14 +207,14 @@
           setState('pending');
           return new Promise(resolve => {
               if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
-                  intercept.requestIntercept(options).then(finalOptions => resolve(finalOptions));
+                  intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: Object.assign(Object.assign({}, options.reqData || {}), query) })).then(finalOptions => resolve(finalOptions));
               }
               else {
                   resolve(options);
               }
           })
               .then(options_ => {
-              let reqData = Object.assign(Object.assign({}, options.reqData), query);
+              let reqData = Object.assign({}, options_.reqData);
               if (customeReq) {
                   return customeReq(options_.url, Object.assign(Object.assign({}, options_), { reqData }));
               }
