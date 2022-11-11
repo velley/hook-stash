@@ -5,4 +5,4 @@ import { HttpState, RequestOptions } from "../../domain/http";
  * @param localOptions 请求配置项 选传
  * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
  */
-export declare function useHttp<T>(url: string, localOptions?: Partial<RequestOptions>): [T | undefined, (query?: any) => Promise<void | T>, HttpState, any];
+export declare function useHttp<T>(url: string, localOptions?: Partial<RequestOptions>): [T, (query?: any) => Promise<void | T>, HttpState, any];
