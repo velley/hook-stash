@@ -25,7 +25,7 @@ export function createServiceComponent<C = {[prop: string]: any}>(Comp: React.FC
 
     /** 将service hooks遍历执行完毕后，需要立即清除在CACHE_MAP中缓存的依赖 */
     hooks.forEach(hook => {
-      if(CACHE_MAP[hook.token]) delete CACHE_MAP[hook.token];
+      if(hook.token && CACHE_MAP[hook.token]) delete CACHE_MAP[hook.token];
     })
 
     // console.log('chain node', chainNode)

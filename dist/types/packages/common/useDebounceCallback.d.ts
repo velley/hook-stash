@@ -5,4 +5,4 @@
  * @param debounceTime 防抖时间
  * @returns debouncer
  */
-export declare function useDebounceCallback<T extends []>(callback: (...params: T) => void, deps: unknown[], debounceTime: number): (...params: T) => void;
+export declare function useDebounceCallback(callback: (...params: any) => void, deps: unknown[], debounceTime: number): (...params: any) => void;

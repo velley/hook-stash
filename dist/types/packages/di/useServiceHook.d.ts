@@ -1,3 +1,7 @@
 import { ServiceHook } from "../../domain/di";
-export declare function useServiceHook<C>(input: ServiceHook<C> | symbol, optional: 'optional'): C | null;
-export declare function useServiceHook<C>(input: ServiceHook<C> | symbol): C;
+interface ServiceOptions {
+    optional?: boolean;
+    skipOne?: boolean;
+}
+export declare function useServiceHook<C>(input: ServiceHook<C> | symbol, options?: ServiceOptions): C;
+export {};

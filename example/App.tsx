@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useRef, useState } from 'react'
 import { FormGroupModel } from '../domain/form';
 import { createServiceComponent, usePrevious, useServiceHook, useUpdateEffect } from '../packages';
@@ -30,7 +31,7 @@ function App() {
     console.log('form', form.current);
     setTimeout(() => {
       // form.current.patchValue({name: '3x'})
-      form.current.controls['name'].setValue('3x')
+      // form.current.controls['name'].setValue('3x')
     }, 2000)  
   }, [])
 
