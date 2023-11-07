@@ -1,46 +1,70 @@
-import React, { createContext, useContext, useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { createContext, useRef, useContext, useCallback, useState, useEffect, useLayoutEffect, useMemo } from 'react';
 
 const SERVICE_CONTEXT = createContext(null);
 const CACHE_MAP = {};
 
+/**
+ * @description 在组件声明周期内生成一个唯一symbol标识
+ */
+function useSymbol() {
+    const symbol = useRef(Symbol('a unique symbol id for current functional component'));
+    return symbol.current;
+}
+
 function createServiceComponent(Comp, hooks) {
     return React.memo((props) => {
-        const topContextVal = useContext(SERVICE_CONTEXT);
-        let dependsMap = {};
-        if (topContextVal)
-            dependsMap = Object.create(topContextVal);
+        const id = useSymbol();
+        const topChainNode = useContext(SERVICE_CONTEXT);
+        const chainNode = {
+            data: {},
+            id,
+            name: Comp.name,
+            parent: topChainNode
+        };
         /** 初始化执行service hooks 并将调用结果存入dependsMap与CACHE_MAP */
         for (let hook of hooks) {
             if (!hook.token)
                 hook.token = Symbol(hook.name);
             const token = hook.token;
             const res = hook();
-            dependsMap[token] = res;
-            CACHE_MAP[token] = dependsMap[token];
+            chainNode.data[token] = res;
+            CACHE_MAP[token] = res;
         }
         /** 将service hooks遍历执行完毕后，需要立即清除在CACHE_MAP中缓存的依赖 */
         hooks.forEach(hook => {
             if (hook.token && CACHE_MAP[hook.token])
                 delete CACHE_MAP[hook.token];
         });
-        return (React.createElement(SERVICE_CONTEXT.Provider, { value: dependsMap },
+        // console.log('chain node', chainNode)
+        return (React.createElement(SERVICE_CONTEXT.Provider, { value: chainNode },
             React.createElement(Comp, Object.assign({}, props))));
     });
 }
 
-function useServiceHook(input, optional) {
-    const token = typeof input === 'symbol' ? input : input.token;
-    const contextVal = useContext(SERVICE_CONTEXT);
-    const depends = contextVal ? contextVal[token] : CACHE_MAP[token];
+// export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
+// export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: {optional: true}): C | null;
+function useServiceHook(input, options) {
+    const token = (typeof input === 'symbol' ? input : input.token);
+    const chainNode = useContext(SERVICE_CONTEXT);
+    const depends = CACHE_MAP[token] ? CACHE_MAP[token] : findDepsInChainNode(chainNode, token, options);
     if (depends) {
         return depends;
     }
-    else if (optional === 'optional') {
+    if (options && options.optional === true) {
         return null;
     }
     else {
         throw new Error(`未找到${token.description}的依赖值，请在上层servcieComponent中提供对应的service hook`);
     }
+}
+function findDepsInChainNode(node, token, options) {
+    const deps = node.data[token];
+    if (deps && !(options === null || options === void 0 ? void 0 : options.skipOne))
+        return deps;
+    if (node.parent)
+        return findDepsInChainNode(node.parent, token);
+    if (!node.parent)
+        return null;
 }
 
 /**
@@ -183,14 +207,14 @@ const PAGING_SETTING = Symbol('提供全局分页配置');
  */
 function useHttp(url, localOptions = {}) {
     const DEFAULT_HTTP_OPTIONS = {
-        auto: true,
+        auto: false,
         method: 'GET',
         reqData: {}
     };
     /** 设置请求配置以及上层组件注入进来的配置项 */
-    const options = Object.assign(DEFAULT_HTTP_OPTIONS, localOptions, { url });
-    const intercept = useServiceHook(HTTP_INTERCEPT, 'optional');
-    const customeReq = useServiceHook(CUSTOME_REQUEST, 'optional');
+    const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+    const intercept = useServiceHook(HTTP_INTERCEPT, { optional: true });
+    const customeReq = useServiceHook(CUSTOME_REQUEST, { optional: true });
     /** 定义http请求的相关状态变量 */
     const [res, setRes] = useState();
     const [err, setErr] = useState();
@@ -205,21 +229,22 @@ function useHttp(url, localOptions = {}) {
                 resolve(options);
             }
         })
-            .then(options_ => {
-            let reqData = Object.assign({}, options_.reqData);
+            .then(options2 => {
+            let reqData = Object.assign({}, options2.reqData);
             if (customeReq) {
-                return customeReq(options_.url, Object.assign(Object.assign({}, options_), { reqData }));
+                return customeReq(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
             }
             else {
-                if (['GET', 'HEAD'].includes(options.method)) {
+                if (['GET', 'HEAD'].includes(options2.method) || !options2.method) {
                     const searchKeys = `?${objectToUrlSearch(reqData)}`;
-                    options.url += searchKeys;
+                    options2.url += searchKeys;
+                    delete options2.body;
                 }
                 else {
-                    options.body = JSON.stringify(reqData);
-                    delete options.reqData;
+                    options2.body = JSON.stringify(reqData);
+                    delete options2.reqData;
                 }
-                return fetch(options.url, options_);
+                return fetch(options2.url, options2);
             }
         })
             .then(response => {

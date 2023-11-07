@@ -37,19 +37,20 @@ export function useHttp<T>(
         resolve(options)
       } 
     })
-    .then(options_ => {
-      let reqData = {...options_.reqData};
+    .then(options2 => {
+      let reqData = {...options2.reqData};
       if(customeReq) {
-        return customeReq(options_.url, {...options_, reqData})
+        return customeReq(options2.url, {...options2, reqData})
       } else {
-        if(['GET', 'HEAD'].includes(options.method)) {
+        if(['GET', 'HEAD'].includes(options2.method) || !options2.method) {
           const searchKeys = `?${objectToUrlSearch(reqData)}`;
-          options.url += searchKeys;  
+          options2.url += searchKeys;  
+          delete options2.body;
         } else {
-          options.body = JSON.stringify(reqData);
-          delete options.reqData;
+          options2.body = JSON.stringify(reqData);
+          delete options2.reqData;
         }
-        return fetch(options.url, options_)
+        return fetch(options2.url, options2)
       }
     })
     .then(response => {

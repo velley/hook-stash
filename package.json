@@ -1,6 +1,6 @@
 {
   "name": "hook-stash",
-  "version": "0.1.6",
+  "version": "18.2.4",
   "description": "基于react的常用hook集合",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",
@@ -8,7 +8,9 @@
   "exports": {
     ".": {
       "import": "./dist/hook-stash.es.js",
-      "require": "./dist/hook-stash.umd.js"
+      "require": "./dist/hook-stash.umd.js",
+      "default": "./dist/hook-stash.es.js",
+      "types": "./dist/types/packages/index.d.ts"
     }
   },
   "scripts": {
@@ -18,15 +20,13 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@types/react": "^17.0.40",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2"
-  },
   "devDependencies": {
+    "@types/react": "^18.2.36",
     "@vitejs/plugin-react": "^1.0.7",
     "father": "^2.30.19",
     "lodash.camelcase": "^4.3.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "rollup": "^2.70.1",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-json": "^4.0.0",
@@ -37,6 +37,10 @@
     "vite": "^2.8.0"
   },
   "peerDependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
+  },
+  "dependencies": {
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
   }
