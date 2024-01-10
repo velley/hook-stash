@@ -38,7 +38,7 @@ export function usePaging<T>(
   url: string,
   querys: object = {},
   localSetting: Partial<PagingSetting & RequestOptions>  = {}
-): [T[], PagingAction, {pagingState: PagingState, httpState: HttpState}] {
+): [T[], PagingAction, {pagingState: PagingState, httpState: HttpState, pageInfo: Partial<Page>}] {
 
   /** 初始化分页请求配置 */
   const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, 'optional');
@@ -145,6 +145,6 @@ export function usePaging<T>(
   return [    
     setting.scrollLoading ? concatedRef.current : currentPagingData,
     { fresh, refresh, reset, nextPage },    
-    {pagingState, httpState}
+    {pagingState, httpState, pageInfo: pageRef.current}
   ]
 }
