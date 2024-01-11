@@ -297,7 +297,7 @@ const LocalPagingSetting = {
 };
 function usePaging(url, querys = {}, localSetting = {}) {
     /** 初始化分页请求配置 */
-    const globalSetting = useServiceHook(PAGING_SETTING, 'optional');
+    const globalSetting = useServiceHook(PAGING_SETTING, { optional: true });
     const setting = Object.assign(Object.assign(Object.assign({}, LocalPagingSetting), (globalSetting || {})), localSetting);
     /** 初始化条件查询对象 */
     const querysRef = useRef(querys);
@@ -318,25 +318,41 @@ function usePaging(url, querys = {}, localSetting = {}) {
             });
     }, []);
     /** 定义分页请求逻辑 */
-    const [res, request, httpState] = useHttp(url, Object.assign(Object.assign({}, setting), { auto: false }));
+    const [, request, httpState] = useHttp(url, Object.assign(Object.assign({}, setting), { auto: false }));
+    const [currentPagingData, setCurrentPagingData] = useState([]);
     const loadData = () => {
         if (httpState === 'pending')
             return;
-        return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }));
+        return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }))
+            .then(res => {
+            if (!res)
+                return;
+            pageRef.current.total = setting.totalPlucker(res);
+            const list = setting.dataPlucker(res);
+            if (pageRef.current.target === setting.start || !setting.scrollLoading) {
+                setCurrentPagingData(list);
+            }
+            else {
+                setCurrentPagingData(val => val.concat(list));
+            }
+        });
     };
     const fresh = (param = {}) => {
         querysRef.current = Object.assign(Object.assign({}, querys), param);
         pageRef.current.target = setting.start;
+        setCurrentPagingData([]);
         loadData();
     };
     const refresh = (param = {}) => {
         querysRef.current = Object.assign(Object.assign(Object.assign({}, querys), querysRef.current), param);
         pageRef.current.target = setting.start;
+        setCurrentPagingData([]);
         loadData();
     };
     const reset = () => {
         querysRef.current = querys;
         pageRef.current.target = setting.start;
+        setCurrentPagingData([]);
         loadData();
     };
     const nextPage = () => {
@@ -349,24 +365,9 @@ function usePaging(url, querys = {}, localSetting = {}) {
         if (setting.auto)
             loadData();
     }, []);
-    /** 根据请求结果设置分页数据 */
-    const currentPagingData = useMemo(() => res ? setting.dataPlucker(res) : [], [res]);
-    const concatedRef = useRef([]);
     useUpdateEffect(() => {
         httpState === 'success' && (pageRef.current.__index = pageRef.current.target); // 只有在请求成功时才能将当前页index值更新为目标页target 
     }, [httpState]);
-    useUpdateEffect(() => {
-        if (pageRef.current.target === setting.start) {
-            concatedRef.current = currentPagingData;
-        }
-        else {
-            if (setting.scrollLoading)
-                concatedRef.current = concatedRef.current.concat(currentPagingData);
-        }
-    }, [currentPagingData]);
-    useUpdateEffect(() => {
-        pageRef.current.total = setting.totalPlucker(res);
-    }, [res]);
     /** 根据请求结果设置分页请求状态 */
     const pagingState = useMemo(() => {
         switch (httpState) {
@@ -384,15 +385,15 @@ function usePaging(url, querys = {}, localSetting = {}) {
                     return 'empty';
                 if (currentPagingData.length < pageRef.current.__size)
                     return 'fulled';
-                if (concatedRef.current.length >= pageRef.current.total)
+                if (currentPagingData.length >= pageRef.current.total)
                     return 'fulled';
                 return 'unfulled';
         }
     }, [httpState]);
     return [
-        setting.scrollLoading ? concatedRef.current : currentPagingData,
+        currentPagingData,
         { fresh, refresh, reset, nextPage },
-        { pagingState, httpState }
+        { pagingState, httpState, pageInfo: pageRef.current }
     ];
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { HttpState, PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
 import { useHttp } from "./useHttp";
@@ -41,7 +41,7 @@ export function usePaging<T>(
 ): [T[], PagingAction, {pagingState: PagingState, httpState: HttpState, pageInfo: Partial<Page>}] {
 
   /** 初始化分页请求配置 */
-  const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, 'optional');
+  const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, {optional: true});
   const setting = {...LocalPagingSetting, ...(globalSetting || {}), ...localSetting} as PagingSetting & RequestOptions;  
 
   /** 初始化条件查询对象 */
@@ -67,29 +67,43 @@ export function usePaging<T>(
   }, [])
 
   /** 定义分页请求逻辑 */
-  const [res, request, httpState ] = useHttp<T>(url, {...setting, auto: false});
+  const [, request, httpState ] = useHttp<T>(url, {...setting, auto: false});
+  const [currentPagingData, setCurrentPagingData] = useState<T[]>([]);
 
   const loadData = () => {
     if (httpState === 'pending') return;    
     return request({ ...querysRef.current, [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size })
+      .then(res => {
+        if(!res) return;
+        pageRef.current.total = setting.totalPlucker(res);
+        const list = setting.dataPlucker(res) as T[];
+        if(pageRef.current.target === setting.start || !setting.scrollLoading) {
+          setCurrentPagingData(list);
+        } else {
+          setCurrentPagingData(val => val.concat(list));
+        }
+      })
   }
 
   const fresh = (param = {}) => {
     querysRef.current = { ...querys, ...param };
     pageRef.current.target = setting.start;
+    setCurrentPagingData([]);
     loadData();
   }
 
   const refresh = (param = {}) => {
     querysRef.current = { ...querys, ...querysRef.current, ...param };
     pageRef.current.target = setting.start;
+    setCurrentPagingData([]);
     loadData();
   }
 
   const reset = () => {
     querysRef.current = querys;
     pageRef.current.target = setting.start;
-    loadData()
+    setCurrentPagingData([]);
+    loadData();
   }
 
   const nextPage = () => {    
@@ -100,27 +114,11 @@ export function usePaging<T>(
 
   useEffect(() => {
     if(setting.auto) loadData();
-  }, [])
-
-  /** 根据请求结果设置分页数据 */
-  const currentPagingData = useMemo<T[]>(() => res ? setting.dataPlucker(res) : [], [res]);
-  const concatedRef       = useRef<T[]>([]);
+  }, [])  
 
   useUpdateEffect(() => {    
     httpState === 'success' && (pageRef.current.__index = pageRef.current.target) // 只有在请求成功时才能将当前页index值更新为目标页target 
-  }, [httpState])
-
-  useUpdateEffect(() => {
-    if(pageRef.current.target === setting.start) {
-      concatedRef.current = currentPagingData;
-    } else {
-      if(setting.scrollLoading) concatedRef.current = concatedRef.current.concat(currentPagingData);
-    }
-  }, [currentPagingData])    
-
-  useUpdateEffect(() => {
-    pageRef.current.total = setting.totalPlucker(res);
-  }, [res])   
+  }, [httpState])         
   
   /** 根据请求结果设置分页请求状态 */
   const pagingState: PagingState = useMemo(() => {
@@ -136,14 +134,14 @@ export function usePaging<T>(
       case 'success':
         if(pageRef.current.target === setting.start && !currentPagingData?.length) return 'empty';
         if(currentPagingData.length < pageRef.current.__size) return 'fulled';
-        if(concatedRef.current.length >= pageRef.current.total) return 'fulled';
+        if(currentPagingData.length >= pageRef.current.total) return 'fulled';
         return 'unfulled';
     }
   }, [httpState])
   
 
   return [    
-    setting.scrollLoading ? concatedRef.current : currentPagingData,
+    currentPagingData,
     { fresh, refresh, reset, nextPage },    
     {pagingState, httpState, pageInfo: pageRef.current}
   ]
