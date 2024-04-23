@@ -7,9 +7,9 @@ interface ServiceOptions {
 }
 
 
-// export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
-// export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: {optional: true}): C | null;
-export function useServiceHook<C>(input: ServiceHook<C> | symbol, options?: ServiceOptions): C {
+export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
+export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: ServiceOptions): C | null;
+export function useServiceHook<C>(input: ServiceHook<C> | symbol, options?: ServiceOptions) {
   const token = (typeof input === 'symbol' ? input : input.token) as unknown as symbol;
   const chainNode = useContext(SERVICE_CONTEXT);
   const depends = CACHE_MAP[token] ? CACHE_MAP[token] : findDepsInChainNode(chainNode as ChainNodes, token, options);
@@ -34,3 +34,6 @@ function findDepsInChainNode(node: ChainNodes, token: symbol, options?: ServiceO
 function checkOption(option: object): option is ServiceOptions {
   return option.hasOwnProperty('skipOne')
 }
+
+
+

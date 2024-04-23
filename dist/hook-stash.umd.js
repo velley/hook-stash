@@ -48,9 +48,8 @@
               React__default["default"].createElement(Comp, Object.assign({}, props))));
       });
   }
+  const createComponentWithProvider = createServiceComponent;
 
-  // export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
-  // export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: {optional: true}): C | null;
   function useServiceHook(input, options) {
       const token = (typeof input === 'symbol' ? input : input.token);
       const chainNode = React.useContext(SERVICE_CONTEXT);
@@ -410,6 +409,7 @@
   exports.HTTP_INTERCEPT = HTTP_INTERCEPT;
   exports.PAGING_SETTING = PAGING_SETTING;
   exports.SERVICE_CONTEXT = SERVICE_CONTEXT;
+  exports.createComponentWithProvider = createComponentWithProvider;
   exports.createServiceComponent = createServiceComponent;
   exports.useDebounceCallback = useDebounceCallback;
   exports.useHistoryState = useHistoryState;

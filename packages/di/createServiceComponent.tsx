@@ -38,3 +38,4 @@ export function createServiceComponent<C = {[prop: string]: any}>(Comp: React.FC
   })
 }
 
+export const createComponentWithProvider = createServiceComponent;

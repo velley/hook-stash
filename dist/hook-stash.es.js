@@ -40,9 +40,8 @@ function createServiceComponent(Comp, hooks) {
             React.createElement(Comp, Object.assign({}, props))));
     });
 }
+const createComponentWithProvider = createServiceComponent;
 
-// export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
-// export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: {optional: true}): C | null;
 function useServiceHook(input, options) {
     const token = (typeof input === 'symbol' ? input : input.token);
     const chainNode = useContext(SERVICE_CONTEXT);
@@ -397,5 +396,5 @@ function usePaging(url, querys = {}, localSetting = {}) {
     ];
 }
 
-export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useUpdateCount, useUpdateEffect, useWatchEffect };
+export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createComponentWithProvider, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useUpdateCount, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map
