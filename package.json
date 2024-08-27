@@ -1,6 +1,6 @@
 {
   "name": "hook-stash",
-  "version": "18.2.19",
+  "version": "18.2.25",
   "description": "基于react的常用hook集合",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",

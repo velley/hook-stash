@@ -1,4 +1,4 @@
-import React, { createContext, useRef, useContext, useCallback, useState, useEffect, useLayoutEffect, useMemo } from 'react';
+import React, { createContext, useRef, useContext, useCallback, useState, useEffect, useMemo, useLayoutEffect } from 'react';
 
 const SERVICE_CONTEXT = createContext(null);
 const CACHE_MAP = {};
@@ -211,7 +211,7 @@ function useHttp(url, localOptions = {}) {
         reqData: {}
     };
     /** 设置请求配置以及上层组件注入进来的配置项 */
-    const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+    const options = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
     const intercept = useServiceHook(HTTP_INTERCEPT, { optional: true });
     const customeReq = useServiceHook(CUSTOME_REQUEST, { optional: true });
     /** 定义http请求的相关状态变量 */
@@ -222,14 +222,15 @@ function useHttp(url, localOptions = {}) {
         setState('pending');
         return new Promise(resolve => {
             if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
-                intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: Object.assign(Object.assign({}, options.reqData || {}), query) })).then(finalOptions => resolve(finalOptions));
+                const reqData = query instanceof FormData ? query : Object.assign(Object.assign({}, options.reqData), query);
+                intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: reqData })).then(finalOptions => resolve(finalOptions));
             }
             else {
                 resolve(options);
             }
         })
             .then(options2 => {
-            let reqData = Object.assign({}, options2.reqData);
+            let reqData = options2.reqData;
             if (customeReq) {
                 return customeReq(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
             }
@@ -240,7 +241,7 @@ function useHttp(url, localOptions = {}) {
                     delete options2.body;
                 }
                 else {
-                    options2.body = JSON.stringify(reqData);
+                    options2.body = reqData instanceof FormData ? reqData : JSON.stringify(reqData);
                     delete options2.reqData;
                 }
                 return fetch(options2.url, options2);
