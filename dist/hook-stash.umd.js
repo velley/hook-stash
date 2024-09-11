@@ -216,6 +216,9 @@
       const DEFAULT_HTTP_OPTIONS = {
           auto: false,
           method: 'GET',
+          headers: {
+              'Content-Type': 'application/json'
+          },
           reqData: {}
       };
       /** 设置请求配置以及上层组件注入进来的配置项 */
