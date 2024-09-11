@@ -11,7 +11,7 @@ export interface HttpIntercept {
 export interface RequesterFunc {
   (input: string, opt?: RequestOptions): Promise<Record<string, any>>;
 }
-
+ 
 /** 请求配置项 */
 export interface RequestOptions {
   url: string;
@@ -19,6 +19,7 @@ export interface RequestOptions {
   reqData: any;
   auto?: boolean;  
   headers: any;
+  defaultValue?: any;
   [prop: string]: any;
 }
 

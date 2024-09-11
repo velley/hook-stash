@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
 
@@ -27,7 +27,7 @@ export function useHttp<T>(
   const customeReq    = useServiceHook<RequesterFunc>(CUSTOME_REQUEST, {optional: true});
 
   /** 定义http请求的相关状态变量 */
-  const [res, setRes]        = useState<T>();
+  const [res, setRes]        = useState<T>(options.defaultValue as T);
   const [err, setErr]        = useState<any>();
   const [state, setState]    = useState<HttpState>('ready');  
 
