@@ -6,7 +6,6 @@ interface ServiceOptions {
   skipOne?: boolean;
 }
 
-
 export function useServiceHook<C>(input: ServiceHook<C> | symbol,): C;
 export function useServiceHook<C>(input: ServiceHook<C> | symbol, options: ServiceOptions): C | null;
 export function useServiceHook<C>(input: ServiceHook<C> | symbol, options?: ServiceOptions) {
