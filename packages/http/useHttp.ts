@@ -22,7 +22,7 @@ export function useHttp<T>(
   }
 
   /** 设置请求配置以及上层组件注入进来的配置项 */
-  const options       = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]); ;
+  const options       = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
   const intercept     = useServiceHook<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
   const customeReq    = useServiceHook<RequesterFunc>(CUSTOME_REQUEST, {optional: true});
 

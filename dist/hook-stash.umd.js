@@ -226,7 +226,7 @@
       const intercept = useServiceHook(HTTP_INTERCEPT, { optional: true });
       const customeReq = useServiceHook(CUSTOME_REQUEST, { optional: true });
       /** 定义http请求的相关状态变量 */
-      const [res, setRes] = React.useState();
+      const [res, setRes] = React.useState(options.defaultValue);
       const [err, setErr] = React.useState();
       const [state, setState] = React.useState('ready');
       const request = (query = {}) => {

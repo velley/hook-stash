@@ -218,7 +218,7 @@ function useHttp(url, localOptions = {}) {
     const intercept = useServiceHook(HTTP_INTERCEPT, { optional: true });
     const customeReq = useServiceHook(CUSTOME_REQUEST, { optional: true });
     /** 定义http请求的相关状态变量 */
-    const [res, setRes] = useState();
+    const [res, setRes] = useState(options.defaultValue);
     const [err, setErr] = useState();
     const [state, setState] = useState('ready');
     const request = (query = {}) => {
