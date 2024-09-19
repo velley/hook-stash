@@ -34,11 +34,10 @@ export function useHttp<T>(
   const request =  (query: any = {}) => {
     setState('pending');
     return new Promise<RequestOptions>(resolve => {
-      if(intercept?.requestIntercept) {
-        const reqData = query instanceof FormData ? query : {...options.reqData, ...query};
-        intercept.requestIntercept({ ...options, reqData: reqData }).then(finalOptions => resolve(finalOptions))
+      if(intercept?.requestIntercept) {        
+        intercept.requestIntercept({ ...options, reqData: query }).then(finalOptions => resolve(finalOptions))
       } else {
-        resolve(options)
+        resolve({ ...options, reqData: query })
       } 
     })
     .then(options2 => {
@@ -79,7 +78,7 @@ export function useHttp<T>(
   }
 
   useEffect(() => {
-    if(options.auto) request()
+    if(options.auto) request(options.reqData)
   }, [])
 
   return [res, request, state, err]
