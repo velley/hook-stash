@@ -233,11 +233,10 @@
           setState('pending');
           return new Promise(resolve => {
               if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
-                  const reqData = query instanceof FormData ? query : Object.assign(Object.assign({}, options.reqData), query);
-                  intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: reqData })).then(finalOptions => resolve(finalOptions));
+                  intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: query })).then(finalOptions => resolve(finalOptions));
               }
               else {
-                  resolve(options);
+                  resolve(Object.assign(Object.assign({}, options), { reqData: query }));
               }
           })
               .then(options2 => {
@@ -281,7 +280,7 @@
       };
       React.useEffect(() => {
           if (options.auto)
-              request();
+              request(options.reqData);
       }, []);
       return [res, request, state, err];
   }
