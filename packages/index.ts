@@ -13,7 +13,7 @@ export * from './common/useUpdateCount';
 export * from './http/useHttp';
 export * from './http/usePaging';
 
-export * from './rx/useObservable';
+export * from './observer/useObservable';
 
 
 /** interface */

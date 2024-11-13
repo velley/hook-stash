@@ -9,6 +9,7 @@ export * from './common/useWatchEffect';
 export * from './common/useUpdateCount';
 export * from './http/useHttp';
 export * from './http/usePaging';
+export * from './rx/useObservable';
 /** interface */
 export * from '../domain/di';
 export * from '../domain/http';
