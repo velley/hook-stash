@@ -13,7 +13,7 @@ export * from './common/useUpdateCount';
 export * from './http/useHttp';
 export * from './http/usePaging';
 
-export * from './observer/useObservable';
+export * from './stash/useStash';
 
 
 /** interface */

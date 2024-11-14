@@ -408,44 +408,57 @@
   }
 
   /**
-   * @function 使用rxjs创建一个可观察值
+   * @function 创建一个可观察值
    * @description
-   * - 区别于useState，该函数返回可观察值的监听和变更方法，且变更该值时不会触发组件重新渲染
-   * - 建议在hook函数中使用（替代useState），可避免hook函数内部触发组件渲染，导致渲染次数不可控而引起性能问题
+   * - 内部基于rxjs的BehaviorSubject实现
+   * - 返回可观察值的监听与变更方法，区别于useState，调用变更方法时不会触发函数组件重新调用
+   * - 建议在hook函数中替代原本使用useState的场景，可避免hook函数内部触发组件渲染，导致渲染次数不可控而引起性能问题
    * @param initValue
    * @returns
-   *  - watchValue 用于监听值的变化，返回一个取消监听的函数
+   *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
    *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
    * @example
-   * const [count, setCount] = useObservable(0);
-   * const [watchValue, pushValue] = useObservable(count);
-   * watchValue((value) => setCount(value));
+   * const [count, setCount] = useStash(0);
+   * const [getValue, pushValue] = useStash(count);
+   * getValue(setCount);
    * setValue(1);
    */
-  function useObservable(initValue) {
-      const value = React.useRef(new rxjs.BehaviorSubject(initValue));
-      const watchValue = React.useCallback((callback) => {
-          const subscription = value.current.subscribe(callback);
-          return {
-              current: value.current.getValue(),
-              unsubscribe: () => {
-                  subscription.unsubscribe();
-              }
-          };
-      }, []);
-      const pushValue = React.useCallback((newValue) => {
-          if (newValue instanceof Function) {
-              value.current.next(newValue(value.current.getValue()));
+  function useStash(initValue) {
+      const subject = React.useRef(new rxjs.BehaviorSubject(initValue));
+      function getValueFunc(callback) {
+          if (!callback) {
+              return subject.current.getValue();
           }
           else {
-              value.current.next(newValue);
+              const subscription = subject.current.subscribe(callback);
+              return () => {
+                  subscription.unsubscribe();
+              };
           }
-      }, []);
-      return [watchValue, pushValue];
+      }
+      getValueFunc.observable = subject.current.asObservable();
+      getValueFunc.useState = function () {
+          const [state, setState] = React.useState(subject.current.getValue());
+          React.useEffect(() => {
+              const subscription = subject.current.subscribe(setState);
+              return () => {
+                  subscription.unsubscribe();
+              };
+          }, []);
+          return [state, pushValue];
+      };
+      const getValue = React.useCallback(getValueFunc, []);
+      function pushValueFunc(newValue) {
+          if (newValue instanceof Function) {
+              subject.current.next(newValue(subject.current.getValue()));
+          }
+          else {
+              subject.current.next(newValue);
+          }
+      }
+      const pushValue = React.useCallback(pushValueFunc, []);
+      return [getValue, pushValue];
   }
-  // function watchValue() {
-  //   throw new Error("Function not implemented.");
-  // }
 
   exports.CACHE_MAP = CACHE_MAP;
   exports.CUSTOME_REQUEST = CUSTOME_REQUEST;
@@ -457,11 +470,11 @@
   exports.useDebounceCallback = useDebounceCallback;
   exports.useHistoryState = useHistoryState;
   exports.useHttp = useHttp;
-  exports.useObservable = useObservable;
   exports.usePaging = usePaging;
   exports.usePrevious = usePrevious;
   exports.useRefState = useRefState;
   exports.useServiceHook = useServiceHook;
+  exports.useStash = useStash;
   exports.useUpdateCount = useUpdateCount;
   exports.useUpdateEffect = useUpdateEffect;
   exports.useWatchEffect = useWatchEffect;

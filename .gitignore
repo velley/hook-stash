@@ -1,4 +1,4 @@
-dist/
+dist/*
 deploy_versions/
 .temp/
 .rn_temp/
