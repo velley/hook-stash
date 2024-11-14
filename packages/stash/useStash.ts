@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BehaviorSubject, Observable } from "rxjs";
+import { BehaviorSubject, Subscription } from "rxjs";
 
 /**
  * @function 创建一个可观察值
@@ -12,7 +12,7 @@ import { BehaviorSubject, Observable } from "rxjs";
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
  *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
  * @example
- * const [count, setCount] = useStash(0);
+ * const [count, setCount] = useState(0);
  * const [getValue, pushValue] = useStash(count);
  * getValue(setCount);
  * setValue(1);
@@ -41,7 +41,7 @@ export function useStash<T>(initValue: T) {
         subscription.unsubscribe();
       };
     }, []);
-    return [state, pushValue] as const;
+    return state;
   }
   const getValue = useCallback(getValueFunc, []);
 
