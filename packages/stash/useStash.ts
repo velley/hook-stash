@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BehaviorSubject, Subscription } from "rxjs";
+import { BehaviorSubject } from "rxjs";
 
 /**
  * @function 创建一个可观察值
@@ -21,8 +21,8 @@ export function useStash<T>(initValue: T) {
   const subject = useRef( new BehaviorSubject<T>(initValue) );
 
   function getValueFunc(): T;
-  function getValueFunc(callback: (value: T) => void): WatchValuerReturn;
-  function getValueFunc(callback?: (value: T) => void): WatchValuerReturn | T {
+  function getValueFunc(callback: (value: T) => void): UnsubscribeForStash;
+  function getValueFunc(callback?: (value: T) => void): UnsubscribeForStash | T {
     if(!callback) {
       return subject.current.getValue();
     } else {
@@ -43,6 +43,18 @@ export function useStash<T>(initValue: T) {
     }, []);
     return state;
   }
+  getValueFunc.watchEffect = function(callback: (value: T) => EffectReturn, deps = [] as Function[]) {    
+    useEffect(() => {
+      let effectReturn: EffectReturn;
+      const subscription = subject.current.subscribe(
+        value => effectReturn = callback(value)        
+      );
+      return () => {
+        if(effectReturn instanceof Function) effectReturn();        
+        subscription.unsubscribe();
+      };
+    }, deps);
+  }
   const getValue = useCallback(getValueFunc, []);
 
   function pushValueFunc(newValue: T | ((oldVal: T) => T)) {
@@ -57,6 +69,8 @@ export function useStash<T>(initValue: T) {
   return [getValue, pushValue] as const;
 }
 
-interface WatchValuerReturn {
+interface UnsubscribeForStash {
   (): void;  
 }
+
+type EffectReturn = (() => void) | void;
