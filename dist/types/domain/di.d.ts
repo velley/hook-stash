@@ -8,5 +8,5 @@ export declare type ChainNodes<T = any> = {
     name: string;
     parent: ChainNodes<T> | null;
 };
-export declare const SERVICE_CONTEXT: import("react").Context<ChainNodes<any>>;
+export declare const SERVICE_CONTEXT: import("react").Context<ChainNodes<any> | null>;
 export declare const CACHE_MAP: Record<symbol, any>;

@@ -3,4 +3,4 @@
  * @param state 状态变量（建议为useState函数返回的变量）
  * @returns 上一个值
  */
-export declare function usePrevious<T>(state: T): T;
+export declare function usePrevious<T>(state: T): T | undefined;

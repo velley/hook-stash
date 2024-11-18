@@ -447,6 +447,17 @@
           }, []);
           return state;
       };
+      getValueFunc.watchEffect = function (callback, deps = []) {
+          React.useEffect(() => {
+              let effectReturn;
+              const subscription = subject.current.subscribe(value => effectReturn = callback(value));
+              return () => {
+                  if (effectReturn instanceof Function)
+                      effectReturn();
+                  subscription.unsubscribe();
+              };
+          }, deps);
+      };
       const getValue = React.useCallback(getValueFunc, []);
       function pushValueFunc(newValue) {
           if (newValue instanceof Function) {

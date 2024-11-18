@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { BehaviorSubject } from "rxjs";
+import { DependencyList, useCallback, useEffect, useRef, useState } from "react";
+import { BehaviorSubject, Observable } from "rxjs";
+
+
+export interface GetStash<T> {
+  (): T;
+  (callback: (value: T) => void): UnsubscribeForStash;
+  observable: Observable<T>;
+  useState(): T;
+  watchEffect(callback: (value: T) => EffectReturn, deps?: DependencyList): void;
+}
+
+export interface SetStash<T> {
+  (newValue: T | ((oldVal: T) => T)): void;
+}
 
 /**
  * @function 创建一个可观察值
@@ -11,15 +24,18 @@ import { BehaviorSubject } from "rxjs";
  * @returns 
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
  *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
- * @example
- * const [count, setCount] = useState(0);
- * const [getValue, pushValue] = useStash(count);
- * getValue(setCount);
- * setValue(1);
+ * @example * 
+ * const [getValue, pushValue] = useStash(0);
+ * cont count = getValue.useState(); 
+ * useEffect(() => {
+ *  setTimeout(() => {
+ *    pushValue(value => value + 1);
+ *  }, 1000)
+ * }, [pushValue])
+ * return <div>{count}</div>
  */
-export function useStash<T>(initValue: T) {
-  const subject = useRef( new BehaviorSubject<T>(initValue) );
-
+export function useStash<T>(initValue: T): [GetStash<T>, SetStash<T>] {
+  const subject = useRef( new BehaviorSubject<T>(initValue) );  
   function getValueFunc(): T;
   function getValueFunc(callback: (value: T) => void): UnsubscribeForStash;
   function getValueFunc(callback?: (value: T) => void): UnsubscribeForStash | T {
@@ -43,7 +59,7 @@ export function useStash<T>(initValue: T) {
     }, []);
     return state;
   }
-  getValueFunc.watchEffect = function(callback: (value: T) => EffectReturn, deps = [] as Function[]) {    
+  getValueFunc.watchEffect = function(callback: (value: T) => EffectReturn, deps = [] as DependencyList) {    
     useEffect(() => {
       let effectReturn: EffectReturn;
       const subscription = subject.current.subscribe(
