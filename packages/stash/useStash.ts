@@ -1,10 +1,10 @@
 import { DependencyList, useCallback, useEffect, useRef, useState } from "react";
-import { BehaviorSubject, Observable } from "rxjs";
+import { BehaviorSubject, Observable, Subscription } from "rxjs";
 
 
-export interface GetStash<T> {
+export interface Stash<T> {
   (): T;
-  (callback: (value: T) => void): UnsubscribeForStash;
+  (callback: (value: T) => void): Subscription;
   observable: Observable<T>;
   useState(): T;
   watchEffect(callback: (value: T) => EffectReturn, deps?: DependencyList): void;
@@ -24,7 +24,7 @@ export interface SetStash<T> {
  * @returns 
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
  *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
- * @example * 
+ * @example 
  * const [getValue, pushValue] = useStash(0);
  * cont count = getValue.useState(); 
  * useEffect(() => {
@@ -34,18 +34,16 @@ export interface SetStash<T> {
  * }, [pushValue])
  * return <div>{count}</div>
  */
-export function useStash<T>(initValue: T): [GetStash<T>, SetStash<T>] {
+export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
   const subject = useRef( new BehaviorSubject<T>(initValue) );  
   function getValueFunc(): T;
-  function getValueFunc(callback: (value: T) => void): UnsubscribeForStash;
-  function getValueFunc(callback?: (value: T) => void): UnsubscribeForStash | T {
+  function getValueFunc(callback: (value: T) => void): Subscription;
+  function getValueFunc(callback?: (value: T) => void): Subscription | T {
     if(!callback) {
       return subject.current.getValue();
     } else {
       const subscription = subject.current.subscribe(callback);
-      return () => {
-        subscription.unsubscribe();
-      };
+      return subscription;
     }    
   }
   getValueFunc.observable = subject.current.asObservable();
@@ -83,10 +81,6 @@ export function useStash<T>(initValue: T): [GetStash<T>, SetStash<T>] {
   const pushValue = useCallback(pushValueFunc, []);
 
   return [getValue, pushValue] as const;
-}
-
-interface UnsubscribeForStash {
-  (): void;  
 }
 
 type EffectReturn = (() => void) | void;

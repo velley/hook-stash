@@ -12,7 +12,7 @@ function useSymbol() {
     return symbol.current;
 }
 
-function createServiceComponent(Comp, hooks) {
+function createComponent(Comp, hooks) {
     return React.memo((props) => {
         const id = useSymbol();
         const topChainNode = useContext(SERVICE_CONTEXT);
@@ -41,7 +41,7 @@ function createServiceComponent(Comp, hooks) {
             React.createElement(Comp, Object.assign({}, props))));
     });
 }
-const createComponentWithProvider = createServiceComponent;
+const createServiceComponent = createComponent;
 
 function useServiceHook(input, options) {
     const token = (typeof input === 'symbol' ? input : input.token);
@@ -410,11 +410,15 @@ function usePaging(url, querys = {}, localSetting = {}) {
  * @returns
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
  *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
- * @example
- * const [count, setCount] = useState(0);
- * const [getValue, pushValue] = useStash(count);
- * getValue(setCount);
- * setValue(1);
+ * @example *
+ * const [getValue, pushValue] = useStash(0);
+ * cont count = getValue.useState();
+ * useEffect(() => {
+ *  setTimeout(() => {
+ *    pushValue(value => value + 1);
+ *  }, 1000)
+ * }, [pushValue])
+ * return <div>{count}</div>
  */
 function useStash(initValue) {
     const subject = useRef(new BehaviorSubject(initValue));
@@ -464,5 +468,5 @@ function useStash(initValue) {
     return [getValue, pushValue];
 }
 
-export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createComponentWithProvider, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useStash, useUpdateCount, useUpdateEffect, useWatchEffect };
+export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createComponent, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useStash, useUpdateCount, useUpdateEffect, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map

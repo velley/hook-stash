@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
+import { useLoad } from "../common/useLoad";
 
 /**
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
@@ -75,11 +76,11 @@ export function useHttp<T>(
       setErr(err);
       throw new Error(err);
     })
-  }
+  }  
 
-  useEffect(() => {
+  useLoad(() => {
     if(options.auto) request(options.reqData)
-  }, [])
+  })
 
   return [res, request, state, err]
 } 

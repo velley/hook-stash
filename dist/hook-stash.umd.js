@@ -19,7 +19,7 @@
       return symbol.current;
   }
 
-  function createServiceComponent(Comp, hooks) {
+  function createComponent(Comp, hooks) {
       return React__default["default"].memo((props) => {
           const id = useSymbol();
           const topChainNode = React.useContext(SERVICE_CONTEXT);
@@ -48,7 +48,7 @@
               React__default["default"].createElement(Comp, Object.assign({}, props))));
       });
   }
-  const createComponentWithProvider = createServiceComponent;
+  const createServiceComponent = createComponent;
 
   function useServiceHook(input, options) {
       const token = (typeof input === 'symbol' ? input : input.token);
@@ -417,11 +417,15 @@
    * @returns
    *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
    *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
-   * @example
-   * const [count, setCount] = useState(0);
-   * const [getValue, pushValue] = useStash(count);
-   * getValue(setCount);
-   * setValue(1);
+   * @example *
+   * const [getValue, pushValue] = useStash(0);
+   * cont count = getValue.useState();
+   * useEffect(() => {
+   *  setTimeout(() => {
+   *    pushValue(value => value + 1);
+   *  }, 1000)
+   * }, [pushValue])
+   * return <div>{count}</div>
    */
   function useStash(initValue) {
       const subject = React.useRef(new rxjs.BehaviorSubject(initValue));
@@ -476,7 +480,7 @@
   exports.HTTP_INTERCEPT = HTTP_INTERCEPT;
   exports.PAGING_SETTING = PAGING_SETTING;
   exports.SERVICE_CONTEXT = SERVICE_CONTEXT;
-  exports.createComponentWithProvider = createComponentWithProvider;
+  exports.createComponent = createComponent;
   exports.createServiceComponent = createServiceComponent;
   exports.useDebounceCallback = useDebounceCallback;
   exports.useHistoryState = useHistoryState;
