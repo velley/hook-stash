@@ -23,19 +23,26 @@ export interface SetStash<T> {
  * @param initValue 
  * @returns 
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
- *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
+ *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
  * @example 
- * const [getValue, pushValue] = useStash(0);
+ * const [getValue, setValue] = useStash(0);
  * cont count = getValue.useState(); 
  * useEffect(() => {
  *  setTimeout(() => {
- *    pushValue(value => value + 1);
+ *    setValue(value => value + 1);
  *  }, 1000)
- * }, [pushValue])
+ * }, [setValue])
  * return <div>{count}</div>
  */
 export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
   const subject = useRef( new BehaviorSubject<T>(initValue) );  
+
+  useEffect(() => {
+    return () => {
+      subject.current.complete();
+    }
+  }, []);
+
   function getValueFunc(): T;
   function getValueFunc(callback: (value: T) => void): Subscription;
   function getValueFunc(callback?: (value: T) => void): Subscription | T {
@@ -57,30 +64,32 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
     }, []);
     return state;
   }
-  getValueFunc.watchEffect = function(callback: (value: T) => EffectReturn, deps = [] as DependencyList) {    
+  getValueFunc.watchEffect = function(callback: (value: T) => EffectReturn) {    
     useEffect(() => {
       let effectReturn: EffectReturn;
       const subscription = subject.current.subscribe(
-        value => effectReturn = callback(value)        
+        value => {
+          effectReturn = callback(value);
+          if(effectReturn instanceof Function) effectReturn();
+        }
       );
-      return () => {
-        if(effectReturn instanceof Function) effectReturn();        
+      return () => {          
         subscription.unsubscribe();
       };
-    }, deps);
+    }, []);
   }
   const getValue = useCallback(getValueFunc, []);
 
-  function pushValueFunc(newValue: T | ((oldVal: T) => T)) {
+  function setValueFunc(newValue: T | ((oldVal: T) => T)) {
     if (newValue instanceof Function) {
       subject.current.next(newValue(subject.current.getValue()));
     } else {
       subject.current.next(newValue);
     }
   }
-  const pushValue = useCallback(pushValueFunc, []);
+  const setValue = useCallback(setValueFunc, []);
 
-  return [getValue, pushValue] as const;
+  return [getValue, setValue] as const;
 }
 
 type EffectReturn = (() => void) | void;
