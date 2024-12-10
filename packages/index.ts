@@ -14,6 +14,7 @@ export * from './http/useHttp';
 export * from './http/usePaging';
 
 export * from './stash/useStash';
+export * from './stash/render'
 
 
 /** interface */

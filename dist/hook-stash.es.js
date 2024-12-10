@@ -199,6 +199,14 @@ const CUSTOME_REQUEST = Symbol('自定义请求函数，以覆盖默认的fetch�
 /** Paging分页请求token */
 const PAGING_SETTING = Symbol('提供全局分页配置');
 
+function useLoad(callback) {
+    const hasLoaded = useRef(false);
+    if (!hasLoaded.current) {
+        callback();
+        hasLoaded.current = true;
+    }
+}
+
 /**
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
  * @param url 请求地址，必传
@@ -271,10 +279,10 @@ function useHttp(url, localOptions = {}) {
             throw new Error(err);
         });
     };
-    useEffect(() => {
+    useLoad(() => {
         if (options.auto)
             request(options.reqData);
-    }, []);
+    });
     return [res, request, state, err];
 }
 function objectToUrlSearch(obj) {
@@ -410,7 +418,7 @@ function usePaging(url, querys = {}, localSetting = {}) {
  * @returns
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
  *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
- * @example *
+ * @example
  * const [getValue, pushValue] = useStash(0);
  * cont count = getValue.useState();
  * useEffect(() => {
@@ -428,9 +436,7 @@ function useStash(initValue) {
         }
         else {
             const subscription = subject.current.subscribe(callback);
-            return () => {
-                subscription.unsubscribe();
-            };
+            return subscription;
         }
     }
     getValueFunc.observable = subject.current.asObservable();
