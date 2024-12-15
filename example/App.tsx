@@ -68,7 +68,7 @@ function Child(props: { count: Stash<number> }) {
     <>
       <div>接收到count: {$(props.count)}</div>
       <div>
-        child level {$(level)}
+        child level {$(level, v => <span style={{color:'red'}}>{v}</span>)}
         <button onClick={() => setLevel(v => v-1)}>降级</button>
       </div>
     </>    
