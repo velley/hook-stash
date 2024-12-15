@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { CACHE_MAP, ChainNodes, ServiceHook, SERVICE_CONTEXT } from "../../domain/di";
+import { CACHE_MAP, ChainNodes, ServiceHook, SERVICE_CONTEXT } from "../../../domain/di";
 
 interface ServiceOptions {
   optional?: boolean;

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { HttpState, PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
-import { useServiceHook } from "../di/useServiceHook";
+import { useServiceHook } from "../core/di/useServiceHook";
 import { useHttp } from "./useHttp";
 import { useUpdateEffect } from '../common/useUpdateEffect'
 

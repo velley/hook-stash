@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useServiceHook } from "../di/useServiceHook";
+import { useServiceHook } from "../core/di/useServiceHook";
 import { useLoad } from "../common/useLoad";
 import { Stash, useStash } from "../core/stash/useStash";
 

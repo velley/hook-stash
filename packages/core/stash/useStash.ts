@@ -1,18 +1,9 @@
-import { DependencyList, useCallback, useEffect, useRef, useState } from "react";
-import { BehaviorSubject, Observable, Subscription } from "rxjs";
+import { useEffect, useRef, useState } from "react";
+import { BehaviorSubject, Subscription } from "rxjs";
+import { EffectReturn, SetStash, Stash } from "../../../domain/stash";
+import { __findWatcher } from "./watcher";
+import { useDestroy } from "../../common/useDestroy";
 
-
-export interface Stash<T> {
-  (): T;
-  (callback: (value: T) => void): Subscription;
-  observable: Observable<T>;
-  useState(): T;
-  watchEffect(callback: (value: T) => EffectReturn, deps?: DependencyList): void;
-}
-
-export interface SetStash<T> {
-  (newValue: T | ((oldVal: T) => T)): void;
-}
 
 /**
  * @function 创建一个可观察值
@@ -35,18 +26,20 @@ export interface SetStash<T> {
  * return <div>{count}</div>
  */
 export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
-  const subject = useRef( new BehaviorSubject<T>(initValue) );  
+  const subject   = useRef( new BehaviorSubject<T>(initValue) );   
+  const getValue  = useRef(getValueFunc);
+  const setValue  = useRef(setValueFunc);
 
-  useEffect(() => {
-    return () => {
-      subject.current.complete();
-    }
-  }, []);
+  useDestroy(() => {
+    subject.current?.complete();
+  })
 
   function getValueFunc(): T;
   function getValueFunc(callback: (value: T) => void): Subscription;
   function getValueFunc(callback?: (value: T) => void): Subscription | T {
     if(!callback) {
+      const watcher = __findWatcher();
+      if(watcher) watcher.registerStash(getValue.current);      
       return subject.current.getValue();
     } else {
       const subscription = subject.current.subscribe(callback);
@@ -77,8 +70,7 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
         subscription.unsubscribe();
       };
     }, []);
-  }
-  const getValue = useCallback(getValueFunc, []);
+  }  
 
   function setValueFunc(newValue: T | ((oldVal: T) => T)) {
     if (newValue instanceof Function) {
@@ -86,10 +78,8 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
     } else {
       subject.current.next(newValue);
     }
-  }
-  const setValue = useCallback(setValueFunc, []);
+  } 
 
-  return [getValue, setValue] as const;
+  return [getValue.current, setValue.current] as const;
 }
 
-type EffectReturn = (() => void) | void;
