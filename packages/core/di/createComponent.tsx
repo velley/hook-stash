@@ -1,9 +1,9 @@
 import React, { PropsWithChildren } from "react";
 import { useContext } from "react";
-import { CACHE_MAP, ChainNodes, ServiceHook, SERVICE_CONTEXT } from "../../domain/di";
-import { useSymbol } from "../common/useSymbol";
+import { CACHE_MAP, ChainNodes, ServiceHook, SERVICE_CONTEXT } from "../../../domain/di";
+import { useSymbol } from "../../common/useSymbol";
 
-export function createComponent<C = {[prop: string]: any}>(Comp: React.FC<C>, hooks: ServiceHook<unknown>[]) {
+export function createComponent<C = {[prop: string]: unknown}>(Comp: React.FC<C>, hooks: ServiceHook<unknown>[]) {
   return React.memo((props: PropsWithChildren<C>) => {
     const id = useSymbol()
     const topChainNode = useContext(SERVICE_CONTEXT);
@@ -37,5 +37,3 @@ export function createComponent<C = {[prop: string]: any}>(Comp: React.FC<C>, ho
     )
   })
 }
-
-export const createServiceComponent = createComponent;

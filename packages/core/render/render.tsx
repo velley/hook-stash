@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Stash } from "./useStash";
+import { Stash } from "../stash/useStash";
 
 interface RenderProps<T> {
   watch: Stash<T>;

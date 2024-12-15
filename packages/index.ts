@@ -1,6 +1,6 @@
 
-export * from './di/createServiceComponent';
-export * from './di/useServiceHook';
+export * from './core/di/createComponent';
+export * from './core/di/useServiceHook';
 
 export * from './common/useDebounceCallback';
 export * from './common/usePrevious';
@@ -13,7 +13,7 @@ export * from './common/useUpdateCount';
 export * from './http/useHttp';
 export * from './http/usePaging';
 
-export * from './stash/useStash';
+export * from './core/stash/useStash';
 
 
 /** interface */

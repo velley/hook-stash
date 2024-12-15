@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../di/useServiceHook";
 import { useLoad } from "../common/useLoad";
-import { Stash, useStash } from "../stash/useStash";
+import { Stash, useStash } from "../core/stash/useStash";
 
 /**
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
