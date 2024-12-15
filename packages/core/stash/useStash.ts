@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { BehaviorSubject, Subscription } from "rxjs";
+import { BehaviorSubject } from "rxjs";
 import { EffectReturn, SetStash, Stash } from "../../../domain/stash";
-import { __findWatcher } from "./watcher";
+import { __findWatcher, EffectWatcher } from "./watcher";
 import { useDestroy } from "../../common/useDestroy";
-
 
 /**
  * @function 创建一个可观察值
@@ -30,21 +29,14 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
   const getValue  = useRef(getValueFunc);
   const setValue  = useRef(setValueFunc);
 
-  useDestroy(() => {
+  useDestroy(() => {    
     subject.current?.complete();
   })
-
-  function getValueFunc(): T;
-  function getValueFunc(callback: (value: T) => void): Subscription;
-  function getValueFunc(callback?: (value: T) => void): Subscription | T {
-    if(!callback) {
-      const watcher = __findWatcher();
-      if(watcher) watcher.registerStash(getValue.current);      
-      return subject.current.getValue();
-    } else {
-      const subscription = subject.current.subscribe(callback);
-      return subscription;
-    }    
+  
+  function getValueFunc(_watcher?: EffectWatcher) {
+    const watcher = __findWatcher(_watcher?.id);
+    if(watcher) watcher.registerStash(getValue.current);      
+    return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();
   getValueFunc.useState = function() {

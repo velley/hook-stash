@@ -2,11 +2,11 @@ import React, { ReactNode, useEffect } from "react";
 import { Stash } from "../../../domain/stash";
 
 interface RenderProps<T> {
-  watch: Stash<T>;
+  target: Stash<T>;
   children: (value: T) => ReactNode;
 }
 
-function _render<T>(watch: Stash<T>, map?: (value: T) => ReactNode) {
+function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
   const renderValue = (_value: T, _map?: (value: T) => ReactNode) => {
     const result = _map ? _map(_value) : _value;
     if (!React.isValidElement(result) && typeof result === "object" && result !== null) {
@@ -17,18 +17,15 @@ function _render<T>(watch: Stash<T>, map?: (value: T) => ReactNode) {
     }
   }
 
-  return <Render watch={watch} children={x => renderValue(x, map)} />;
+  return <Render target={target} children={x => renderValue(x, map)} />;
 }
 
 export const $ = _render;
 export function Render<T>(props: RenderProps<T>) {
-  const { watch, children } = props;
-  const [value, setWatchValue] = React.useState(watch());
-
-  useEffect(() => {
-    const { unsubscribe } = watch(setWatchValue);
-    return unsubscribe;
-  }, [watch]);
+  const { target, children } = props;
+  const [value, setWatchValue] = React.useState(target());
+ 
+  target.watchEffect(setWatchValue);
 
   return children(value);
 }

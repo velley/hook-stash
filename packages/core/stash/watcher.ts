@@ -23,21 +23,21 @@ export class EffectWatcher<T = unknown> {
 	static EFFECT_WATCHER: EffectWatcher<any>[] = [];
 
 	id: symbol;
-	callback: () => any;	
+	callback: () => any;
 	stashArray: Stash<unknown>[] = [];
 
 	private __listener?: Subject<T>;
 	private __subscription: Subscription;
 
 	constructor(id: symbol, callback: () => any, listener?: Subject<T>) {
-		this.id = id;   
+		this.id = id;
 		this.callback = callback;
 		EffectWatcher.EFFECT_WATCHER.push(this);
 		const result = callback(); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的stash进行依赖注册
-		if(listener) {
+		if (listener) {
 			this.__listener = listener;
 			this.__listener.next(result);
-		} 
+		}
 	}
 
 	registerStash(stash: Stash<unknown>) {
@@ -45,7 +45,7 @@ export class EffectWatcher<T = unknown> {
 		this.stashArray.push(stash);
 	}
 
-	load() {	
+	load() {
 		const observables = this.stashArray.map(stash => stash.observable);
 		this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(
 			() => {
@@ -57,7 +57,7 @@ export class EffectWatcher<T = unknown> {
 
 	unload() {
 		const index = EffectWatcher.EFFECT_WATCHER.findIndex(watcher => watcher.id === this.id);
-		if(index > -1) EffectWatcher.EFFECT_WATCHER.splice(index, 1);
+		if (index > -1) EffectWatcher.EFFECT_WATCHER.splice(index, 1);
 		this.__subscription.unsubscribe();
 	}
 }

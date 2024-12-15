@@ -30,6 +30,10 @@ function App() {
     console.log('watch res', res())
   })
 
+  useEffect(() => {
+    console.log('render App')
+  })
+
   return (
     <div className="App">  
       <button onClick={() => setCount(v => v + 1)}>+</button>
@@ -42,16 +46,32 @@ function App() {
 }
 
 function Child(props: { count: Stash<number> }) {
-
-  useWatchEffect(() => {
-    console.log('watch child', props.count())
-  })
+  const [level, setLevel] = useStash(100)  
   
   useEffect(() => {
     console.log('render Child')
-  }, [])
+  })
+
+  const result = useComputed(() => {
+    return props.count() + '-' + level()
+  })
+
+  useWatchEffect(() => {
+    console.log('watch child result', result())
+  })
+
+  useWatchEffect(() => {
+    console.log('watch level', level())
+  })
+
   return (
-    <div>接收到count: {props.count()}</div>
+    <>
+      <div>接收到count: {$(props.count)}</div>
+      <div>
+        child level {$(level)}
+        <button onClick={() => setLevel(v => v-1)}>降级</button>
+      </div>
+    </>    
   )
 }
 

@@ -6,25 +6,18 @@ import { __createWatcher, __findWatcher, EffectWatcher } from "./watcher";
 import { useSymbol } from "../../common/useSymbol";
 import { useDestroy } from "../../common/useDestroy";
 
-export function useComputed<T>(inputFn: () => T): Stash<T | null> {
+export function useComputed<T>(inputFn: (watcher?: EffectWatcher) => T): Stash<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
 	const getValue  = useRef(getValueFunc);
 
   useDestroy(() => {
     subject.current?.complete();
   })
-
-	function getValueFunc(): T;
-  function getValueFunc(callback: (value: T | null) => void): Subscription;
-  function getValueFunc(callback?: (value: T | null) => void): Subscription | T {
-    if(!callback) {
-      const watcher = __findWatcher();
-      if(watcher) watcher.registerStash(getValue.current);      
-      return subject.current.getValue() as T;
-    } else {
-      const subscription = subject.current.subscribe(callback);
-      return subscription;
-    }    
+	
+  function getValueFunc(_watcher?: EffectWatcher) {
+    const watcher = __findWatcher(_watcher?.id);
+    if(watcher) watcher.registerStash(getValue.current);      
+    return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();
   getValueFunc.useState = function() {

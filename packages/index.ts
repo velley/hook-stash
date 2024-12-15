@@ -2,21 +2,23 @@
 export * from './core/di/createComponent';
 export * from './core/di/useServiceHook';
 
-export * from './common/useDebounceCallback';
-export * from './common/usePrevious';
-export * from './common/useRefState';
-export * from './common/useHistoryState';
-export * from './common/useUpdateEffect';
-export * from './common/useWatchEffect';
-export * from './common/useUpdateCount';
-
-export * from './http/useHttp';
-export * from './http/usePaging';
-
 export * from './core/stash/useStash';
 export * from './core/render/render';
+export * from './core/stash/useComputed';
+export * from './core/stash/useWatchEffect';
+
+export * from './common/useRefState';
+export * from './common/useLoad';
+export * from './common/useDestroy';
+export * from './common/useMounted';
+
+export * from './http/useHttp';
+export * from './http/useHttpClient';
+export * from './http/usePaging';
+
 
 
 /** interface */
 export * from '../domain/di';
 export * from '../domain/http';
+export * from '../domain/stash';

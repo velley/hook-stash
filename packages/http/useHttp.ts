@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../core/di/useServiceHook";
 import { useLoad } from "../common/useLoad";
 
 /**
+ * @deprecated useHttp方法即将废弃，请改用useHttpClient
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
  * @param url 请求地址，必传
  * @param localOptions 请求配置项 选传

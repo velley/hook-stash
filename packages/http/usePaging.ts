@@ -1,8 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { HttpState, PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
+import { useRef} from "react";
+import { PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
 import { useServiceHook } from "../core/di/useServiceHook";
-import { useHttp } from "./useHttp";
-import { useUpdateEffect } from '../common/useUpdateEffect'
+import { useHttpClient } from "./useHttpClient";
+import { useStash } from "../core/stash/useStash";
+import { useLoad } from "../common/useLoad";
+import { useComputed } from "../core/stash/useComputed";
+import { Stash } from "../../domain/stash";
 
 interface PagingAction {
   /** 刷新请求(分页重置，清除原有请求的查询参数querys)  */
@@ -38,7 +41,7 @@ export function usePaging<T>(
   url: string,
   querys: object = {},
   localSetting: Partial<PagingSetting & RequestOptions>  = {}
-): [T[], PagingAction, {pagingState: PagingState, httpState: HttpState, pageInfo: Partial<Page>}] {
+) {
 
   /** 初始化分页请求配置 */
   const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, {optional: true});
@@ -48,9 +51,9 @@ export function usePaging<T>(
   const querysRef = useRef(querys);
 
   /** 初始化分页信息 */
-  const pageRef = useRef<Partial<Page>>({});
+  const pageRef = useRef<Page>({} as Page);
 
-  useLayoutEffect(() => {
+  useLoad(() => {
     pageRef.current.target                 = setting.start;
     pageRef.current[setting['indexKey']]   = setting.start;
     pageRef.current[setting['sizeKey']]    = setting.size;
@@ -64,14 +67,14 @@ export function usePaging<T>(
     Object.defineProperty(pageRef.current, '__size', {
       get: () => pageRef.current[setting['sizeKey']]
     });
-  }, [])
+  })
 
   /** 定义分页请求逻辑 */
-  const [, request, httpState ] = useHttp<T>(url, {...setting, auto: false});
-  const [currentPagingData, setCurrentPagingData] = useState<T[]>([]);
+  const [, request, httpState ] = useHttpClient<T>(url, {...setting, auto: false});
+  const [currentPagingData, setCurrentPagingData] = useStash<T[]>([]);
 
   const loadData = () => {
-    if (httpState === 'pending') return;    
+    if (httpState() === 'pending') return;    
     return request({ ...querysRef.current, [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size })
       .then(res => {
         if(!res) return;
@@ -107,22 +110,24 @@ export function usePaging<T>(
   }
 
   const nextPage = () => {    
-    if (pagingState === 'fulled') return;
+    if (pagingState() === 'fulled') return;
     pageRef.current.target = pageRef.current.__index + 1;
     loadData();
   }    
 
-  useEffect(() => {
+  useLoad(() => {
     if(setting.auto) loadData();
-  }, [])  
+  })  
 
-  useUpdateEffect(() => {    
-    httpState === 'success' && (pageRef.current.__index = pageRef.current.target) // 只有在请求成功时才能将当前页index值更新为目标页target 
-  }, [httpState])         
+  httpState.watchEffect(val => {
+    if(val === 'success') {
+      pageRef.current.__index = pageRef.current.target;
+    }
+  })  
   
   /** 根据请求结果设置分页请求状态 */
-  const pagingState: PagingState = useMemo(() => {
-    switch(httpState) {
+  const pagingState: Stash<PagingState | null> = useComputed(() => {
+    switch(httpState()) {
       default:
         return 'refreshing';
       case 'pending':
@@ -137,12 +142,11 @@ export function usePaging<T>(
         if(currentPagingData.length >= pageRef.current.total) return 'fulled';
         return 'unfulled';
     }
-  }, [httpState])
-  
+  })  
 
   return [    
     currentPagingData,
     { fresh, refresh, reset, nextPage },    
     {pagingState, httpState, pageInfo: pageRef.current}
-  ]
+  ] as const
 }
