@@ -19,7 +19,7 @@ export interface SetStash<T> {
  * @description 
  * - 内部基于rxjs的BehaviorSubject实现
  * - 返回可观察值的监听与变更方法，区别于useState，调用变更方法时不会触发函数组件重新调用
- * - 建议在hook函数中替代原本使用useState的场景，可避免hook函数内部触发组件渲染，导致渲染次数不可控而引起性能问题
+ * - 可在hook函数中替代原本使用useState的场景
  * @param initValue 
  * @returns 
  *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用

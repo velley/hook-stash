@@ -1,7 +1,7 @@
 {
   "name": "@haoyi/hook-stash",
-  "version": "18.2.30",
-  "description": "基于react的常用hook集合",
+  "version": "18.3.0",
+  "description": "基于react的依赖注入库",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",
   "typings": "dist/types/packages/index.d.ts",
@@ -41,7 +41,8 @@
   },
   "peerDependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "rxjs": "^7.8.1"
   },
   "dependencies": {
     "react": "^18.2.0",
