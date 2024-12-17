@@ -1,5 +1,4 @@
+import { useServiceHook } from "./useServiceHook";
 
 
-export function useInjector() {
-  
-}
+export const useInjector = useServiceHook;
