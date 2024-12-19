@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useServiceHook } from "../core/di/useServiceHook";
 import { useLoad } from "../common/useLoad";
+import { useInjector } from "../core/di/useInjector";
 
 /**
  * @deprecated useHttp方法即将废弃，请改用useHttpClient
@@ -25,8 +25,8 @@ export function useHttp<T>(
 
   /** 设置请求配置以及上层组件注入进来的配置项 */
   const options       = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
-  const intercept     = useServiceHook<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
-  const customeReq    = useServiceHook<RequesterFunc>(CUSTOME_REQUEST, {optional: true});
+  const intercept     = useInjector<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
+  const customeReq    = useInjector<RequesterFunc>(CUSTOME_REQUEST, {optional: true});
 
   /** 定义http请求的相关状态变量 */
   const [res, setRes]        = useState<T>(options.defaultValue as T);

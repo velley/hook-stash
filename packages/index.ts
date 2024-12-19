@@ -1,6 +1,5 @@
 
 export * from './core/di/createComponent';
-export * from './core/di/useServiceHook';
 export * from './core/di/useInjector';
 
 export * from './core/stash/useStash';

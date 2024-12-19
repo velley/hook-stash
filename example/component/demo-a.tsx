@@ -1,6 +1,6 @@
 import React from "react";
 import { useEffect } from "react";
-import { createServiceComponent, useServiceHook, useUpdateEffect } from "../../packages";
+import { createServiceComponent, useProviderHook, useUpdateEffect } from "../../packages";
 import { useHttp } from "../../packages/http/useHttp";
 import { usePaging } from "../../packages/http/usePaging";
 import { useCount } from "../hooks/useCount";
@@ -10,7 +10,7 @@ export const DemoA = createServiceComponent(
 
     // const [, res, state] = useHttp<any>('/api/queryOrganization', {auto: true});
     const [res, {nextPage}, state] = usePaging<any>('/api/queryOrganization', {}, {auto: true});
-    const {count} = useServiceHook(useCount, {skipOne: true})
+    const {count} = useProviderHook(useCount, {skipOne: true})
   
     useUpdateEffect(() => {
       console.log(res)

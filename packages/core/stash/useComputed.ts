@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { BehaviorSubject, Subscription } from "rxjs";
 import { EffectReturn, Stash } from "../../../domain/stash";
 import { useLoad } from "../../common/useLoad";
-import { __createWatcher, __findWatcher, EffectWatcher } from "./watcher";
+import { __createEffectWatcher, __findEffectWatcher, EffectWatcher } from "./watcher";
 import { useSymbol } from "../../common/useSymbol";
 import { useDestroy } from "../../common/useDestroy";
 
-export function useComputed<T>(inputFn: (watcher?: EffectWatcher) => T): Stash<T | null> {
+export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
 	const getValue  = useRef(getValueFunc);
 
@@ -14,9 +14,10 @@ export function useComputed<T>(inputFn: (watcher?: EffectWatcher) => T): Stash<T
     subject.current?.complete();
   })
 	
-  function getValueFunc(_watcher?: EffectWatcher) {
-    const watcher = __findWatcher(_watcher?.id);
-    if(watcher) watcher.registerStash(getValue.current);      
+  function getValueFunc(symbol?: symbol) {
+    const watcher = __findEffectWatcher(symbol);
+    watcher?.registerStash(getValue.current);     
+     
     return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();
@@ -48,7 +49,7 @@ export function useComputed<T>(inputFn: (watcher?: EffectWatcher) => T): Stash<T
 	const id = useSymbol();   
 	const watcher = useRef<EffectWatcher<T | null>>();
 	useLoad(() => {
-		watcher.current = __createWatcher(id, inputFn, subject.current);
+		watcher.current = __createEffectWatcher(id, inputFn, subject.current) as EffectWatcher<T | null>;
 		watcher.current.load();
 	})
 
