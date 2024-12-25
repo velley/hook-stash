@@ -23,8 +23,8 @@ interface RenderWatcherConstructor {
 	id: symbol;
 	callback: (symbol?: symbol) => any;
 }
-export class RenderWatcher<T = unknown> {
-	static RENDER_WATCHER: RenderWatcher<any>[] = [];
+export class RenderWatcher {
+	static RENDER_WATCHER: RenderWatcher[] = [];
 
 	id: symbol;
 	private callback: (symbol?: symbol) => any;
@@ -55,7 +55,6 @@ export class RenderWatcher<T = unknown> {
 	}
 
 	unload() {
-		const index = RenderWatcher.RENDER_WATCHER.findIndex(watcher => watcher.id === this.id);
 		this.__subscription.unsubscribe();
 	}
 }
