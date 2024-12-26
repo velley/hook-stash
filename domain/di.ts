@@ -1,11 +1,29 @@
 import { createContext } from "react";
 
-export interface ServiceHook<C> {
+
+export interface ComponentInjector {
+  id: symbol;
+  name: string;
+  parent: ComponentInjector | null;
+  providers: Map<symbol, ComponentProvider>;
+};
+
+export interface ComponentProvider<T extends object = object> {
+  token: symbol;
+  value: T;
+  origin: ProviderHook<unknown>;
+  type: 'hook' | 'constant' | 'component';
+  status: 'idle' | 'pending' | 'committed';
+}
+
+export interface ProviderHook<C> {
   (): C;
   token?: symbol;
 }
 
-export type ChainNodes<T = any> = {data: T; id: symbol; name: string; parent: ChainNodes<T> | null};
+export interface InputProviderDepends {
 
-export const SERVICE_CONTEXT = createContext<ChainNodes<any> | null>(null);
-export const CACHE_MAP = {} as Record<symbol, any>;
+}
+
+export const SERVICE_CONTEXT = createContext<ComponentInjector | null>(null);
+export const ACTIVE_CACHE: { providers: ComponentInjector['providers'] | null } = { providers: null };

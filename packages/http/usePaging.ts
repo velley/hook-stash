@@ -1,11 +1,11 @@
 import { useRef} from "react";
 import { PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
-import { useServiceHook } from "../core/di/useServiceHook";
 import { useHttpClient } from "./useHttpClient";
 import { useStash } from "../core/stash/useStash";
 import { useLoad } from "../common/useLoad";
 import { useComputed } from "../core/stash/useComputed";
 import { Stash } from "../../domain/stash";
+import { useInjector } from "../core/di/useInjector";
 
 interface PagingAction {
   /** 刷新请求(分页重置，清除原有请求的查询参数querys)  */
@@ -44,7 +44,7 @@ export function usePaging<T>(
 ) {
 
   /** 初始化分页请求配置 */
-  const globalSetting = useServiceHook<PagingSetting>(PAGING_SETTING, {optional: true});
+  const globalSetting = useInjector<PagingSetting>(PAGING_SETTING, {optional: true});
   const setting = {...LocalPagingSetting, ...(globalSetting || {}), ...localSetting} as PagingSetting & RequestOptions;  
 
   /** 初始化条件查询对象 */

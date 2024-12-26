@@ -1,9 +1,35 @@
-import React, { ReactNode, useEffect } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { Stash } from "../../../domain/stash";
+import { useSymbol } from "../../common/useSymbol";
+import { __createRenderWatcher } from "./watcher";
 
 interface RenderProps<T> {
   target: Stash<T>;
   children: (value: T) => ReactNode;
+}
+
+export function Render(props: {children: () => ReactNode}) {
+	const id = useSymbol();
+
+	const [trigger, setTrigger] = useState(0);
+	const handler = () => {
+		setTrigger(v => v + 1)	
+  }
+
+	const watcher = __createRenderWatcher(id, handler);
+
+	useEffect(() => {		
+		watcher.load();
+		return () => watcher.unload()
+	}, [trigger])
+  
+	return props.children()  
+}
+
+function SingleRender<T>(props: RenderProps<T>) {
+  const { target, children } = props;
+  const value = target.useState();
+  return children(value);
 }
 
 function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
@@ -17,15 +43,7 @@ function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
     }
   }
 
-  return <Render target={target} children={x => renderValue(x, map)} />;
+  return <SingleRender target={target} children={x => renderValue(x, map)} />;
 }
 
 export const $ = _render;
-export function Render<T>(props: RenderProps<T>) {
-  const { target, children } = props;
-  const [value, setWatchValue] = React.useState(target());
- 
-  target.watchEffect(setWatchValue);
-
-  return children(value);
-}

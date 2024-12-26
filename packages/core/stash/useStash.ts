@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { BehaviorSubject } from "rxjs";
 import { EffectReturn, SetStash, Stash } from "../../../domain/stash";
-import { __findWatcher, EffectWatcher } from "./watcher";
+import { __findEffectWatcher } from "./watcher";
 import { useDestroy } from "../../common/useDestroy";
+import { __findRenderWatcher } from "../render/watcher";
 
 /**
  * @function 创建一个可观察值
@@ -33,9 +34,15 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
     subject.current?.complete();
   })
   
-  function getValueFunc(_watcher?: EffectWatcher) {
-    const watcher = __findWatcher(_watcher?.id);
-    if(watcher) watcher.registerStash(getValue.current);      
+  function getValueFunc(symbol?: symbol) {
+    //获取effectWatcher，将当前的stash注册到watcher中
+    const effectWatcher = __findEffectWatcher(symbol);
+    effectWatcher?.registerStash(getValue.current);    
+    
+    //获取renderWatcher，将当前的stash注册到watcher中
+    const renderWathcer = __findRenderWatcher(symbol);
+    if(renderWathcer) renderWathcer.registerStash(getValue.current);
+
     return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();
