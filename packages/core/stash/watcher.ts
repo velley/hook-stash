@@ -21,7 +21,7 @@ export class EffectWatcher<T = unknown> {
 	static ACTIVE_WATCHER: EffectWatcher<any> | null = null;
 
 	id: symbol;
-	private callback: () => any;
+	private callback: (_watcher?: EffectWatcher<any>) => any;
 	private stashArray: Stash<unknown>[] = [];
 
 	private __listener?: Subject<T>;
@@ -49,7 +49,7 @@ export class EffectWatcher<T = unknown> {
 		const observables = this.stashArray.map(stash => stash.observable);
 		this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(
 			() => {
-				const res = this.callback();
+				const res = this.callback(this);
 				if (this.__listener) this.__listener.next(res);
 			}
 		);
