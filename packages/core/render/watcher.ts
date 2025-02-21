@@ -10,7 +10,6 @@ export function __createRenderWatcher(id: symbol, callback: (symbol?: symbol) =>
 }
 
 export function __findRenderWatcher(id?: symbol) {
-	console.log('find find', RenderWatcher.RENDER_WATCHER)
 	if (id) {
 		return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
 	} else {

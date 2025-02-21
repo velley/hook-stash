@@ -1,11 +1,11 @@
-import React, { createContext, useRef, useContext, useCallback, useState, useEffect, useMemo, useLayoutEffect } from 'react';
-import { BehaviorSubject } from 'rxjs';
+import React, { createContext, useRef, useContext, useEffect, useState, useMemo } from 'react';
+import { combineLatest, skip, BehaviorSubject } from 'rxjs';
 
 const SERVICE_CONTEXT = createContext(null);
-const CACHE_MAP = {};
+const ACTIVE_CACHE = { providers: null };
 
 /**
- * @description 在组件声明周期内生成一个唯一symbol标识
+ * @description 生成一个symbol标识
  */
 function useSymbol() {
     const symbol = useRef(Symbol('a unique symbol id for current functional component'));
@@ -15,38 +15,74 @@ function useSymbol() {
 function createComponent(Comp, hooks) {
     return React.memo((props) => {
         const id = useSymbol();
-        const topChainNode = useContext(SERVICE_CONTEXT);
-        const chainNode = {
-            data: {},
+        // 获取父级注入器
+        const parentInjector = useContext(SERVICE_CONTEXT);
+        // 为当前组件上下文创建注入器
+        const injector = {
             id,
             name: Comp.name,
-            parent: topChainNode
+            providers: new Map(),
+            parent: parentInjector,
         };
-        /** 初始化执行service hooks 并将调用结果存入dependsMap与CACHE_MAP */
+        // 创建注入器providers
         for (let hook of hooks) {
             if (!hook.token)
                 hook.token = Symbol(hook.name);
             const token = hook.token;
-            const res = hook();
-            chainNode.data[token] = res;
-            CACHE_MAP[token] = res;
+            const provider = { token, value: {}, origin: hook, status: 'idle', type: 'hook' };
+            injector.providers.set(token, provider);
         }
-        /** 将service hooks遍历执行完毕后，需要立即清除在CACHE_MAP中缓存的依赖 */
-        hooks.forEach(hook => {
-            if (hook.token && CACHE_MAP[hook.token])
-                delete CACHE_MAP[hook.token];
-        });
-        // console.log('chain node', chainNode)
-        return (React.createElement(SERVICE_CONTEXT.Provider, { value: chainNode },
+        // 将当前组件注入器的providers赋值给ACTIVE_INJECTOR作为临时存储
+        ACTIVE_CACHE.providers = injector.providers;
+        /** 解析并执行providers中的hook函数，并将调用结果存入dependsMap与CACHE_MAP */
+        ACTIVE_CACHE.providers.forEach(__runProvider);
+        // 执行完毕后需要清空临时存储
+        ACTIVE_CACHE.providers = null;
+        return (React.createElement(SERVICE_CONTEXT.Provider, { value: injector },
             React.createElement(Comp, Object.assign({}, props))));
     });
 }
-const createServiceComponent = createComponent;
+const __runProvider = (provider) => {
+    if (provider.status !== 'idle')
+        return;
+    provider.status = 'pending';
+    if (provider.type === 'hook') {
+        const hook = provider.origin;
+        const result = hook();
+        // 若result类型为对象，则将其合并到provider.value中，否则抛出错误
+        if (typeof result === 'object' && result !== null) {
+            Object.assign(provider.value, result);
+        }
+        else {
+            throw new Error('provider hook函数必须返回一个对象');
+        }
+    }
+    else {
+        throw new Error('暂不支持的provider类型');
+    }
+    provider.status = 'committed';
+    return provider.value;
+};
 
-function useServiceHook(input, options) {
+function useInjector(input, options) {
     const token = (typeof input === 'symbol' ? input : input.token);
-    const chainNode = useContext(SERVICE_CONTEXT);
-    const depends = CACHE_MAP[token] ? CACHE_MAP[token] : findDepsInChainNode(chainNode, token, options);
+    let depends;
+    if (ACTIVE_CACHE.providers && ACTIVE_CACHE.providers.has(token)) {
+        const provider = ACTIVE_CACHE.providers.get(token);
+        depends = provider.value;
+        if (provider.status === 'idle') {
+            __runProvider(provider);
+        }
+        if (provider.status === 'pending') {
+            console.error(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`);
+        }
+    }
+    else {
+        const injector = useContext(SERVICE_CONTEXT);
+        if (!injector)
+            throw new Error('未找到注入器，请使用createComponent创建组件并通过provider参数提供对应依赖');
+        depends = findDepsByInjector(injector, token, options);
+    }
     if (depends) {
         return depends;
     }
@@ -54,52 +90,295 @@ function useServiceHook(input, options) {
         return null;
     }
     else {
-        throw new Error(`未找到${token.description}的依赖值，请在上层servcieComponent中提供对应的service hook`);
+        throw new Error(`未找到${token.description}的依赖值，请在上层Component中提供对应的providers`);
     }
 }
-function findDepsInChainNode(node, token, options) {
-    const deps = node.data[token];
+function findDepsByInjector(node, token, options) {
+    var _a;
+    const deps = (_a = node.providers.get(token)) === null || _a === void 0 ? void 0 : _a.value;
     if (deps && !(options === null || options === void 0 ? void 0 : options.skipOne))
         return deps;
     if (node.parent)
-        return findDepsInChainNode(node.parent, token);
+        return findDepsByInjector(node.parent, token);
     if (!node.parent)
         return null;
 }
 
-/**
- * @description 防抖函数
- * @param callback 初始回调函数
- * @param deps 依赖值
- * @param debounceTime 防抖时间
- * @returns debouncer
- */
-function useDebounceCallback(callback, deps, debounceTime) {
-    const timeRef = useRef(null);
-    const runner = useCallback(callback, deps);
-    const debouncer = (...params) => {
-        clearTimeout(timeRef.current);
-        const runTimeout = () => {
-            return setTimeout(() => { runner(...params); }, debounceTime);
+function __createEffectWatcher(id, callback, listener) {
+    const exit = EffectWatcher.EFFECT_WATCHER.find(watcher => watcher.id === id);
+    if (exit)
+        return exit;
+    const watcher = new EffectWatcher({ id, callback, listener });
+    return watcher;
+}
+function __findEffectWatcher(id) {
+    if (id) {
+        return EffectWatcher.EFFECT_WATCHER.find(watcher => watcher.id === id);
+    }
+    else {
+        return EffectWatcher.ACTIVE_WATCHER;
+    }
+}
+class EffectWatcher {
+    constructor({ id, callback, listener }) {
+        this.stashArray = [];
+        this.id = id;
+        this.callback = callback;
+        EffectWatcher.EFFECT_WATCHER.push(this);
+        EffectWatcher.ACTIVE_WATCHER = this;
+        const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的stash getter以便进行依赖注册
+        EffectWatcher.ACTIVE_WATCHER = null; // 执行完毕后需要将activeWatcher置空
+        if (listener) {
+            this.__listener = listener;
+            this.__listener.next(result);
+        }
+    }
+    registerStash(stash) {
+        if (this.stashArray.includes(stash))
+            return;
+        this.stashArray.push(stash);
+    }
+    load() {
+        const observables = this.stashArray.map(stash => stash.observable);
+        this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(() => {
+            const res = this.callback(this.id);
+            if (this.__listener)
+                this.__listener.next(res);
+        });
+    }
+    unload() {
+        const index = EffectWatcher.EFFECT_WATCHER.findIndex(watcher => watcher.id === this.id);
+        if (index > -1)
+            EffectWatcher.EFFECT_WATCHER.splice(index, 1);
+        this.__subscription.unsubscribe();
+    }
+}
+EffectWatcher.EFFECT_WATCHER = [];
+EffectWatcher.ACTIVE_WATCHER = null;
+
+function useDestroy(callback) {
+    useEffect(() => {
+        return () => {
+            callback();
         };
-        timeRef.current = runTimeout();
-    };
-    return debouncer;
+    }, []);
 }
 
-/**
- * @description 将最近两次变化的值并返回(只有输入值变化时，返回值才会相应地更新)
- * @param state 状态变量（建议为useState函数返回的变量）
- * @returns 上一个值
- */
-function usePrevious(state) {
-    const prevRef = useRef();
-    const curRef = useRef();
-    if (curRef.current !== state) {
-        prevRef.current = curRef.current;
-        curRef.current = state;
+function __createRenderWatcher(id, callback) {
+    const exit = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
+    if (exit)
+        return exit;
+    const watcher = new RenderWatcher({ id, callback });
+    return watcher;
+}
+function __findRenderWatcher(id) {
+    if (id) {
+        return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
     }
-    return prevRef.current;
+    else {
+        return RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
+    }
+}
+class RenderWatcher {
+    constructor({ id, callback }) {
+        this.stashArray = [];
+        this.id = id;
+        this.callback = callback;
+        RenderWatcher.RENDER_WATCHER.push(this);
+        this.context = createContext(this);
+    }
+    registerStash(stash) {
+        if (this.stashArray.includes(stash))
+            return;
+        this.stashArray.push(stash);
+    }
+    load() {
+        const observables = this.stashArray.map(stash => stash.observable);
+        this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(() => {
+            this.callback();
+        });
+        RenderWatcher.RENDER_WATCHER.pop(); //订阅后需要立即移除最新的watcher
+    }
+    unload() {
+        this.__subscription.unsubscribe();
+    }
+}
+RenderWatcher.RENDER_WATCHER = [];
+
+/**
+ * @function 创建一个可观察值
+ * @description
+ * - 内部基于rxjs的BehaviorSubject实现
+ * - 返回可观察值的监听与变更方法，区别于useState，调用变更方法时不会触发函数组件重新调用
+ * - 可在hook函数中替代原本使用useState的场景
+ * @param initValue
+ * @returns
+ *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
+ *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
+ * @example
+ * const [getValue, setValue] = useStash(0);
+ * cont count = getValue.useState();
+ * useEffect(() => {
+ *  setTimeout(() => {
+ *    setValue(value => value + 1);
+ *  }, 1000)
+ * }, [setValue])
+ * return <div>{count}</div>
+ */
+function useStash(initValue) {
+    const subject = useRef(new BehaviorSubject(initValue));
+    const getValue = useRef(getValueFunc);
+    const setValue = useRef(setValueFunc);
+    useDestroy(() => {
+        var _a;
+        (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
+    });
+    function getValueFunc(symbol) {
+        //获取effectWatcher，将当前的stash注册到watcher中
+        const effectWatcher = __findEffectWatcher(symbol);
+        effectWatcher === null || effectWatcher === void 0 ? void 0 : effectWatcher.registerStash(getValue.current);
+        //获取renderWatcher，将当前的stash注册到watcher中
+        const renderWathcer = __findRenderWatcher(symbol);
+        if (renderWathcer)
+            renderWathcer.registerStash(getValue.current);
+        return subject.current.getValue();
+    }
+    getValueFunc.observable = subject.current.asObservable();
+    getValueFunc.useState = function () {
+        const [state, setState] = useState(subject.current.getValue());
+        useEffect(() => {
+            const subscription = subject.current.subscribe(setState);
+            return () => {
+                subscription.unsubscribe();
+            };
+        }, []);
+        return state;
+    };
+    getValueFunc.watchEffect = function (callback) {
+        useEffect(() => {
+            let effectReturn;
+            const subscription = subject.current.subscribe(value => {
+                effectReturn = callback(value);
+                if (effectReturn instanceof Function)
+                    effectReturn();
+            });
+            return () => {
+                subscription.unsubscribe();
+            };
+        }, []);
+    };
+    function setValueFunc(newValue) {
+        if (newValue instanceof Function) {
+            subject.current.next(newValue(subject.current.getValue()));
+        }
+        else {
+            subject.current.next(newValue);
+        }
+    }
+    return [getValue.current, setValue.current];
+}
+
+function Render(props) {
+    const id = useSymbol();
+    const [trigger, setTrigger] = useState(0);
+    const handler = () => {
+        setTrigger(v => v + 1);
+    };
+    const watcher = __createRenderWatcher(id, handler);
+    useEffect(() => {
+        watcher.load();
+        return () => watcher.unload();
+    }, [trigger]);
+    return props.children();
+}
+function SingleRender(props) {
+    const { target, children } = props;
+    const value = target.useState();
+    return children(value);
+}
+function _render(target, map) {
+    const renderValue = (_value, _map) => {
+        const result = _map ? _map(_value) : _value;
+        if (!React.isValidElement(result) && typeof result === "object" && result !== null) {
+            console.warn("render方法无法直接渲染引用类型，已自动转化为json字符串", _value);
+            return JSON.stringify(result);
+        }
+        else {
+            return result;
+        }
+    };
+    return React.createElement(SingleRender, { target: target, children: x => renderValue(x, map) });
+}
+const $ = _render;
+
+function useLoad(callback) {
+    const hasLoaded = useRef(false);
+    if (!hasLoaded.current) {
+        callback();
+        hasLoaded.current = true;
+    }
+}
+
+function useComputed(inputFn) {
+    const subject = useRef(new BehaviorSubject(null));
+    const getValue = useRef(getValueFunc);
+    useDestroy(() => {
+        var _a;
+        (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
+    });
+    function getValueFunc(symbol) {
+        const watcher = __findEffectWatcher(symbol);
+        watcher === null || watcher === void 0 ? void 0 : watcher.registerStash(getValue.current);
+        return subject.current.getValue();
+    }
+    getValueFunc.observable = subject.current.asObservable();
+    getValueFunc.useState = function () {
+        const [state, setState] = useState(subject.current.getValue());
+        useEffect(() => {
+            const subscription = subject.current.subscribe(setState);
+            return () => {
+                subscription.unsubscribe();
+            };
+        }, []);
+        return state;
+    };
+    getValueFunc.watchEffect = function (callback) {
+        useEffect(() => {
+            let effectReturn;
+            const subscription = subject.current.subscribe(value => {
+                effectReturn = callback(value);
+                if (effectReturn instanceof Function)
+                    effectReturn();
+            });
+            return () => {
+                subscription.unsubscribe();
+            };
+        }, []);
+    };
+    const id = useSymbol();
+    const watcher = useRef();
+    useLoad(() => {
+        watcher.current = __createEffectWatcher(id, inputFn, subject.current);
+        watcher.current.load();
+    });
+    useDestroy(() => {
+        var _a;
+        (_a = watcher.current) === null || _a === void 0 ? void 0 : _a.unload();
+    });
+    return getValue.current;
+}
+
+function useWatchEffect(callback) {
+    const id = useSymbol();
+    const watcher = useRef();
+    useLoad(() => {
+        watcher.current = __createEffectWatcher(id, callback);
+        watcher.current.load();
+    });
+    useDestroy(() => {
+        var _a;
+        (_a = watcher.current) === null || _a === void 0 ? void 0 : _a.unload();
+    });
 }
 
 /**
@@ -115,81 +394,10 @@ function useRefState(refState) {
     return [state, setRefState];
 }
 
-/**
- * @description 保存状态的历史变化记录
- * @param state 状态变量
- * @returns state历史值，最新值在末尾
- */
-function useHistoryState(state) {
-    const [logs, setLogs] = useState([]);
+function useMounted(callback) {
     useEffect(() => {
-        setLogs(logs => logs.concat([state]));
-    }, [state]);
-    return logs;
-}
-
-/**
- * @description 依赖值更新时执行副作用函数（忽略组件第一次渲染后的副作用），并将每个依赖上一次变更的值传给副作用函数
- * @param callback 要执行的回调函数
- * @param deps 状态依赖
- */
-function useUpdateEffect(callback, deps) {
-    const counter = useRef(0);
-    const changesRef = useRef([]);
-    deps.forEach((dep, index) => {
-        changesRef.current[index] = usePrevious(dep);
-    });
-    useEffect(() => {
-        counter.current++;
-        if (counter.current == 1)
-            return;
-        return callback(changesRef.current);
-    }, deps);
-}
-
-/**
- * @description 依赖值更新时执行的副作用函数，并将函数上一次调用时的所有依赖值传给当前调用(注意与useUpdateEffect的区别)
- * @param callback 要执行的回调函数
- * @param deps 状态依赖
- */
-function useWatchEffect(callback, deps) {
-    const runCount = useRef(0);
-    const caches = useRef([]);
-    useEffect(() => {
-        caches.current.push(deps);
-        runCount.current++;
-        if (runCount.current === 1)
-            return;
-        return callback(caches.current.shift());
-    }, deps);
-}
-
-/**
- * @description 记录状态的变化次数(第一次初始化时记为第0次)
- * @param state 状态变量
- * @param options
- * deep: 是否为深度比较，state为对象时，会遍历其属性进行比较,全部相等时不会记为一次变化
- * @returns
- */
-function useUpdateCount(state, options) {
-    const [count, setCount] = useState(0);
-    const before = usePrevious(state);
-    useUpdateEffect(() => {
-        if (options === null || options === void 0 ? void 0 : options.deep) {
-            let changed = false;
-            for (let key in state) {
-                if (state[key] !== (before === null || before === void 0 ? void 0 : before[key])) {
-                    changed = true;
-                    break;
-                }
-            }
-            changed && setCount(v => v + 1);
-        }
-        else {
-            state !== before && setCount(v => v + 1);
-        }
-    }, [state, before]);
-    return count;
+        callback();
+    }, []);
 }
 
 /** HTTP拦截器token */
@@ -199,15 +407,8 @@ const CUSTOME_REQUEST = Symbol('自定义请求函数，以覆盖默认的fetch�
 /** Paging分页请求token */
 const PAGING_SETTING = Symbol('提供全局分页配置');
 
-function useLoad(callback) {
-    const hasLoaded = useRef(false);
-    if (!hasLoaded.current) {
-        callback();
-        hasLoaded.current = true;
-    }
-}
-
 /**
+ * @deprecated useHttp方法即将废弃，请改用useHttpClient
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
  * @param url 请求地址，必传
  * @param localOptions 请求配置项 选传
@@ -224,13 +425,102 @@ function useHttp(url, localOptions = {}) {
     };
     /** 设置请求配置以及上层组件注入进来的配置项 */
     const options = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
-    const intercept = useServiceHook(HTTP_INTERCEPT, { optional: true });
-    const customeReq = useServiceHook(CUSTOME_REQUEST, { optional: true });
+    const intercept = useInjector(HTTP_INTERCEPT, { optional: true });
+    const customeReq = useInjector(CUSTOME_REQUEST, { optional: true });
     /** 定义http请求的相关状态变量 */
     const [res, setRes] = useState(options.defaultValue);
     const [err, setErr] = useState();
     const [state, setState] = useState('ready');
     const request = (query = {}) => {
+        setState('pending');
+        return new Promise(resolve => {
+            if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
+                intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: query })).then(finalOptions => resolve(finalOptions));
+            }
+            else {
+                resolve(Object.assign(Object.assign({}, options), { reqData: query }));
+            }
+        })
+            .then(options2 => {
+            let reqData = options2.reqData;
+            if (customeReq) {
+                return customeReq(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
+            }
+            else {
+                if (['GET', 'HEAD'].includes(options2.method) || !options2.method) {
+                    const searchKeys = `?${objectToUrlSearch$1(reqData)}`;
+                    options2.url += searchKeys;
+                    delete options2.body;
+                }
+                else {
+                    options2.body = reqData instanceof FormData ? reqData : JSON.stringify(reqData);
+                    delete options2.reqData;
+                }
+                return fetch(options2.url, options2);
+            }
+        })
+            .then(response => {
+            const res = response;
+            const resIntercept = intercept === null || intercept === void 0 ? void 0 : intercept.responseIntercept;
+            if (customeReq) {
+                return resIntercept ? resIntercept(res) : res;
+            }
+            else {
+                return res.json().then((re) => resIntercept ? resIntercept(re) : re);
+            }
+        })
+            .then(res => {
+            setRes(res);
+            setState('success');
+            return res;
+        })
+            .catch(err => {
+            setState('failed');
+            setErr(err);
+            throw new Error(err);
+        });
+    };
+    useLoad(() => {
+        if (options.auto)
+            request(options.reqData);
+    });
+    return [res, request, state, err];
+}
+function objectToUrlSearch$1(obj) {
+    console.log(obj);
+    if (!obj)
+        return '';
+    let str = '';
+    for (let key in obj) {
+        str += `${key}=${obj[key]}&`;
+    }
+    return str;
+}
+
+/**
+ * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
+ * @param url 请求地址，必传
+ * @param localOptions 请求配置项 选传
+ * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
+ */
+function useHttpClient(url, localOptions = {}) {
+    const DEFAULT_HTTP_OPTIONS = {
+        auto: false,
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        reqData: {}
+    };
+    /** 设置请求配置以及上层组件注入进来的配置项 */
+    const options = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
+    const intercept = useInjector(HTTP_INTERCEPT, { optional: true });
+    const customeReq = useInjector(CUSTOME_REQUEST, { optional: true });
+    /** 定义http请求的相关状态变量 */
+    const [res, setRes] = useStash(options.defaultValue);
+    const [err, setErr] = useStash(null);
+    const [state, setState] = useStash('ready');
+    const request = useRef((query = {}) => {
         setState('pending');
         return new Promise(resolve => {
             if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
@@ -278,12 +568,12 @@ function useHttp(url, localOptions = {}) {
             setErr(err);
             throw new Error(err);
         });
-    };
+    });
     useLoad(() => {
         if (options.auto)
-            request(options.reqData);
+            request.current(options.reqData);
     });
-    return [res, request, state, err];
+    return [res, request.current, state, err];
 }
 function objectToUrlSearch(obj) {
     console.log(obj);
@@ -308,13 +598,13 @@ const LocalPagingSetting = {
 };
 function usePaging(url, querys = {}, localSetting = {}) {
     /** 初始化分页请求配置 */
-    const globalSetting = useServiceHook(PAGING_SETTING, { optional: true });
+    const globalSetting = useInjector(PAGING_SETTING, { optional: true });
     const setting = Object.assign(Object.assign(Object.assign({}, LocalPagingSetting), (globalSetting || {})), localSetting);
     /** 初始化条件查询对象 */
     const querysRef = useRef(querys);
     /** 初始化分页信息 */
     const pageRef = useRef({});
-    useLayoutEffect(() => {
+    useLoad(() => {
         pageRef.current.target = setting.start;
         pageRef.current[setting['indexKey']] = setting.start;
         pageRef.current[setting['sizeKey']] = setting.size;
@@ -327,12 +617,12 @@ function usePaging(url, querys = {}, localSetting = {}) {
             Object.defineProperty(pageRef.current, '__size', {
                 get: () => pageRef.current[setting['sizeKey']]
             });
-    }, []);
+    });
     /** 定义分页请求逻辑 */
-    const [, request, httpState] = useHttp(url, Object.assign(Object.assign({}, setting), { auto: false }));
-    const [currentPagingData, setCurrentPagingData] = useState([]);
+    const [, request, httpState] = useHttpClient(url, Object.assign(Object.assign({}, setting), { auto: false }));
+    const [currentPagingData, setCurrentPagingData] = useStash([]);
     const loadData = () => {
-        if (httpState === 'pending')
+        if (httpState() === 'pending')
             return;
         return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }))
             .then(res => {
@@ -367,21 +657,23 @@ function usePaging(url, querys = {}, localSetting = {}) {
         loadData();
     };
     const nextPage = () => {
-        if (pagingState === 'fulled')
+        if (pagingState() === 'fulled')
             return;
         pageRef.current.target = pageRef.current.__index + 1;
         loadData();
     };
-    useEffect(() => {
+    useLoad(() => {
         if (setting.auto)
             loadData();
-    }, []);
-    useUpdateEffect(() => {
-        httpState === 'success' && (pageRef.current.__index = pageRef.current.target); // 只有在请求成功时才能将当前页index值更新为目标页target 
-    }, [httpState]);
+    });
+    httpState.watchEffect(val => {
+        if (val === 'success') {
+            pageRef.current.__index = pageRef.current.target;
+        }
+    });
     /** 根据请求结果设置分页请求状态 */
-    const pagingState = useMemo(() => {
-        switch (httpState) {
+    const pagingState = useComputed(() => {
+        switch (httpState()) {
             default:
                 return 'refreshing';
             case 'pending':
@@ -400,7 +692,7 @@ function usePaging(url, querys = {}, localSetting = {}) {
                     return 'fulled';
                 return 'unfulled';
         }
-    }, [httpState]);
+    });
     return [
         currentPagingData,
         { fresh, refresh, reset, nextPage },
@@ -408,71 +700,5 @@ function usePaging(url, querys = {}, localSetting = {}) {
     ];
 }
 
-/**
- * @function 创建一个可观察值
- * @description
- * - 内部基于rxjs的BehaviorSubject实现
- * - 返回可观察值的监听与变更方法，区别于useState，调用变更方法时不会触发函数组件重新调用
- * - 建议在hook函数中替代原本使用useState的场景，可避免hook函数内部触发组件渲染，导致渲染次数不可控而引起性能问题
- * @param initValue
- * @returns
- *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
- *  - pushValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
- * @example
- * const [getValue, pushValue] = useStash(0);
- * cont count = getValue.useState();
- * useEffect(() => {
- *  setTimeout(() => {
- *    pushValue(value => value + 1);
- *  }, 1000)
- * }, [pushValue])
- * return <div>{count}</div>
- */
-function useStash(initValue) {
-    const subject = useRef(new BehaviorSubject(initValue));
-    function getValueFunc(callback) {
-        if (!callback) {
-            return subject.current.getValue();
-        }
-        else {
-            const subscription = subject.current.subscribe(callback);
-            return subscription;
-        }
-    }
-    getValueFunc.observable = subject.current.asObservable();
-    getValueFunc.useState = function () {
-        const [state, setState] = useState(subject.current.getValue());
-        useEffect(() => {
-            const subscription = subject.current.subscribe(setState);
-            return () => {
-                subscription.unsubscribe();
-            };
-        }, []);
-        return state;
-    };
-    getValueFunc.watchEffect = function (callback, deps = []) {
-        useEffect(() => {
-            let effectReturn;
-            const subscription = subject.current.subscribe(value => effectReturn = callback(value));
-            return () => {
-                if (effectReturn instanceof Function)
-                    effectReturn();
-                subscription.unsubscribe();
-            };
-        }, deps);
-    };
-    const getValue = useCallback(getValueFunc, []);
-    function pushValueFunc(newValue) {
-        if (newValue instanceof Function) {
-            subject.current.next(newValue(subject.current.getValue()));
-        }
-        else {
-            subject.current.next(newValue);
-        }
-    }
-    const pushValue = useCallback(pushValueFunc, []);
-    return [getValue, pushValue];
-}
-
-export { CACHE_MAP, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, SERVICE_CONTEXT, createComponent, createServiceComponent, useDebounceCallback, useHistoryState, useHttp, usePaging, usePrevious, useRefState, useServiceHook, useStash, useUpdateCount, useUpdateEffect, useWatchEffect };
+export { $, ACTIVE_CACHE, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, Render, SERVICE_CONTEXT, __runProvider, createComponent, useComputed, useDestroy, useHttp, useHttpClient, useInjector, useLoad, useMounted, usePaging, useRefState, useStash, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map
