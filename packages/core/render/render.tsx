@@ -35,7 +35,7 @@ function SingleRender<T>(props: RenderProps<T>) {
 function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
   const renderValue = (_value: T, _map?: (value: T) => ReactNode) => {
     const result = _map ? _map(_value) : _value;
-    if (!React.isValidElement(result) && typeof result === "object" && result !== null) {
+    if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
       console.warn("render方法无法直接渲染引用类型，已自动转化为json字符串", _value);
       return JSON.stringify(result) as string;
     } else {
@@ -47,3 +47,11 @@ function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
 }
 
 export const $ = _render;
+
+// 判断输入值是否为合法的ReactNode
+function isValidReactNode(value: any): value is ReactNode {
+  if(Array.isArray(value)) {
+    return value.every(React.isValidElement);
+  }
+  return React.isValidElement(value);
+}

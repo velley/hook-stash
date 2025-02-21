@@ -127,6 +127,7 @@ export function usePaging<T>(
   
   /** 根据请求结果设置分页请求状态 */
   const pagingState: Stash<PagingState | null> = useComputed(() => {
+    const dataLen = currentPagingData()?.length || 0;
     switch(httpState()) {
       default:
         return 'refreshing';
@@ -137,9 +138,9 @@ export function usePaging<T>(
           return 'loading'
         }
       case 'success':
-        if(pageRef.current.target === setting.start && !currentPagingData?.length) return 'empty';
-        if(currentPagingData.length < pageRef.current.__size) return 'fulled';
-        if(currentPagingData.length >= pageRef.current.total) return 'fulled';
+        if(pageRef.current.target === setting.start && !dataLen) return 'empty';
+        if(dataLen < pageRef.current.__size) return 'fulled';
+        if(dataLen >= pageRef.current.total) return 'fulled';
         return 'unfulled';
     }
   })  

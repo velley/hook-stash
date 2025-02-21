@@ -26,7 +26,7 @@ export function useHttp<T>(
   /** 设置请求配置以及上层组件注入进来的配置项 */
   const options       = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
   const intercept     = useInjector<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
-  const customeReq    = useInjector<RequesterFunc>(CUSTOME_REQUEST, {optional: true});
+  const customeReq    = useInjector<{req: RequesterFunc}>(CUSTOME_REQUEST, {optional: true});
 
   /** 定义http请求的相关状态变量 */
   const [res, setRes]        = useState<T>(options.defaultValue as T);
@@ -45,7 +45,7 @@ export function useHttp<T>(
     .then(options2 => {
       let reqData = options2.reqData;
       if(customeReq) {
-        return customeReq(options2.url, {...options2, reqData})
+        return customeReq.req(options2.url, {...options2, reqData})
       } else {
         if(['GET', 'HEAD'].includes(options2.method) || !options2.method) {
           const searchKeys = `?${objectToUrlSearch(reqData)}`;

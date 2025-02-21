@@ -299,7 +299,7 @@ function SingleRender(props) {
 function _render(target, map) {
     const renderValue = (_value, _map) => {
         const result = _map ? _map(_value) : _value;
-        if (!React.isValidElement(result) && typeof result === "object" && result !== null) {
+        if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
             console.warn("render方法无法直接渲染引用类型，已自动转化为json字符串", _value);
             return JSON.stringify(result);
         }
@@ -310,6 +310,13 @@ function _render(target, map) {
     return React.createElement(SingleRender, { target: target, children: x => renderValue(x, map) });
 }
 const $ = _render;
+// 判断输入值是否为合法的ReactNode
+function isValidReactNode(value) {
+    if (Array.isArray(value)) {
+        return value.every(React.isValidElement);
+    }
+    return React.isValidElement(value);
+}
 
 function useLoad(callback) {
     const hasLoaded = useRef(false);
@@ -444,7 +451,7 @@ function useHttp(url, localOptions = {}) {
             .then(options2 => {
             let reqData = options2.reqData;
             if (customeReq) {
-                return customeReq(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
+                return customeReq.req(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
             }
             else {
                 if (['GET', 'HEAD'].includes(options2.method) || !options2.method) {
@@ -533,7 +540,7 @@ function useHttpClient(url, localOptions = {}) {
             .then(options2 => {
             let reqData = options2.reqData;
             if (customeReq) {
-                return customeReq(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
+                return customeReq.req(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
             }
             else {
                 if (['GET', 'HEAD'].includes(options2.method) || !options2.method) {
@@ -673,6 +680,8 @@ function usePaging(url, querys = {}, localSetting = {}) {
     });
     /** 根据请求结果设置分页请求状态 */
     const pagingState = useComputed(() => {
+        var _a;
+        const dataLen = ((_a = currentPagingData()) === null || _a === void 0 ? void 0 : _a.length) || 0;
         switch (httpState()) {
             default:
                 return 'refreshing';
@@ -684,11 +693,11 @@ function usePaging(url, querys = {}, localSetting = {}) {
                     return 'loading';
                 }
             case 'success':
-                if (pageRef.current.target === setting.start && !(currentPagingData === null || currentPagingData === void 0 ? void 0 : currentPagingData.length))
+                if (pageRef.current.target === setting.start && !dataLen)
                     return 'empty';
-                if (currentPagingData.length < pageRef.current.__size)
+                if (dataLen < pageRef.current.__size)
                     return 'fulled';
-                if (currentPagingData.length >= pageRef.current.total)
+                if (dataLen >= pageRef.current.total)
                     return 'fulled';
                 return 'unfulled';
         }
