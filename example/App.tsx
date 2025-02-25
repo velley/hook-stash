@@ -5,6 +5,7 @@ import { useStash, render, useComputed } from '../packages';
 const App = () => {  
   const [count, setCount] = useStash(0); 
   const level = useComputed(() => `${count()}级组件`);
+  console.log('app render 只打印一次')
 
   return render(() => (
     <>            
