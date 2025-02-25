@@ -13,7 +13,7 @@ import { __findRenderWatcher } from "../render/watcher";
  * - 可在hook函数中替代原本使用useState的场景
  * @param initValue 
  * @returns 
- *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
+ *  - getValue 用于获取实时值
  *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
  * @example 
  * const [getValue, setValue] = useStash(0);

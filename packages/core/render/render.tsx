@@ -26,13 +26,17 @@ export function Render(props: {children: () => ReactNode}) {
 	return props.children()  
 }
 
+export function render(nodeFn: () => ReactNode) {
+  return <Render>{nodeFn}</Render>
+}
+
 function SingleRender<T>(props: RenderProps<T>) {
   const { target, children } = props;
   const value = target.useState();
   return children(value);
 }
 
-function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
+function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
   const renderValue = (_value: T, _map?: (value: T) => ReactNode) => {
     const result = _map ? _map(_value) : _value;
     if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
@@ -46,7 +50,7 @@ function _render<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
   return <SingleRender target={target} children={x => renderValue(x, map)} />;
 }
 
-export const $ = _render;
+export const $ = _singRender;
 
 // 判断输入值是否为合法的ReactNode
 function isValidReactNode(value: any): value is ReactNode {

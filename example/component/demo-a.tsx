@@ -1,32 +1,22 @@
 import React from "react";
 import { useEffect } from "react";
-import { createServiceComponent, useProviderHook, useUpdateEffect } from "../../packages";
 import { useHttp } from "../../packages/http/useHttp";
 import { usePaging } from "../../packages/http/usePaging";
 import { useCount } from "../hooks/useCount";
+import { createComponent, useInjector } from "../../packages";
 
-export const DemoA = createServiceComponent(
+export const DemoA = createComponent(
   function () {
-
-    // const [, res, state] = useHttp<any>('/api/queryOrganization', {auto: true});
     const [res, {nextPage}, state] = usePaging<any>('/api/queryOrganization', {}, {auto: true});
-    const {count} = useProviderHook(useCount, {skipOne: true})
-  
-    useUpdateEffect(() => {
-      console.log(res)
-    }, [res])
-  
-    useUpdateEffect(() => {
-      console.log(state)
-    }, [state])
-    
+    const { count } = useInjector(useCount,)  
+   
     return (
       <div>
         demo A, count is {count}
-        {state.httpState}
         <button onClick={_ => nextPage()}>下一页</button>
       </div>
     )
   },
   [useCount]
 )
+

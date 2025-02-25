@@ -1,4 +1,4 @@
-import { EffectCallback, useEffect, useRef } from "react";
+import { useRef } from "react";
 import { useSymbol } from "../../common/useSymbol";
 import { useLoad } from "../../common/useLoad";
 import { EffectWatcher, __createEffectWatcher } from "./watcher";
@@ -17,5 +17,3 @@ export function useWatchEffect(callback: (symbol?: symbol) => void) {
 		watcher.current?.unload();
 	})	
 }
-
-
