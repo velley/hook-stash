@@ -9,7 +9,7 @@ const App = () => {
 
   return render(() => (
     <>            
-      <div>父组件：{count()}</div>
+      {/* <div>父组件：{count()}</div> */}
       <div>父组件：{level()}</div>
       <button onClick={() => setCount(v => v+1)}>+</button>
     </>
