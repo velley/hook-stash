@@ -6,6 +6,7 @@ import { __createRenderWatcher } from "./watcher";
 interface RenderProps<T> {
   target: Stash<T>;
   children: (value: T) => ReactNode;
+  placeholder?: () => ReactNode;
 }
 
 export function Render(props: {children: () => ReactNode}) {
@@ -31,12 +32,12 @@ export function render(nodeFn: () => ReactNode) {
 }
 
 function SingleRender<T>(props: RenderProps<T>) {
-  const { target, children } = props;
+  const { target, children, placeholder } = props;
   const value = target.useState();
-  return isNullOrUndefined(value) ? <></> : children(value);
+  return isNullOrUndefined(value) ? (placeholder ? placeholder() : children(value)) : children(value);
 }
 
-function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
+function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode, placeholder?: () => ReactNode) {
   const renderValue = (_value: T, _map?: (value: T) => ReactNode) => {
     const result = _map ? _map(_value) : _value;
     if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
@@ -47,7 +48,7 @@ function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
     }
   }
 
-  return <SingleRender target={target} children={x => renderValue(x, map)} />;
+  return <SingleRender target={target} children={x => renderValue(x, map)} placeholder={placeholder} />;
 }
 
 export const $ = _singRender;
