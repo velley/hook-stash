@@ -1,6 +1,6 @@
 import { useRef } from "react";
 
-export function useLoad(callback: () => void) {
+export function useReady(callback: () => void) {
   const hasLoaded = useRef(false);
 
   if (!hasLoaded.current) {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useLoad } from "../common/useLoad";
+import { useReady } from "../common/useReady";
 import { useInjector } from "../core/di/useInjector";
 
 /**
@@ -79,7 +79,7 @@ export function useHttp<T>(
     })
   }  
 
-  useLoad(() => {
+  useReady(() => {
     if(options.auto) request(options.reqData)
   })
 

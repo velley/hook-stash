@@ -220,7 +220,7 @@
    * - 可在hook函数中替代原本使用useState的场景
    * @param initValue
    * @returns
-   *  - getValue 用于获取值，可以传入一个回调函数，回调函数会在值变更时被调用
+   *  - getValue 用于获取实时值
    *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
    * @example
    * const [getValue, setValue] = useStash(0);
@@ -298,12 +298,15 @@
       }, [trigger]);
       return props.children();
   }
+  function render(nodeFn) {
+      return React__default["default"].createElement(Render, null, nodeFn);
+  }
   function SingleRender(props) {
       const { target, children } = props;
       const value = target.useState();
-      return children(value);
+      return isNullOrUndefined(value) ? React__default["default"].createElement(React__default["default"].Fragment, null) : children(value);
   }
-  function _render(target, map) {
+  function _singRender(target, map) {
       const renderValue = (_value, _map) => {
           const result = _map ? _map(_value) : _value;
           if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
@@ -316,7 +319,7 @@
       };
       return React__default["default"].createElement(SingleRender, { target: target, children: x => renderValue(x, map) });
   }
-  const $ = _render;
+  const $ = _singRender;
   // 判断输入值是否为合法的ReactNode
   function isValidReactNode(value) {
       if (Array.isArray(value)) {
@@ -324,8 +327,11 @@
       }
       return React__default["default"].isValidElement(value);
   }
+  function isNullOrUndefined(value) {
+      return value === null || value === undefined;
+  }
 
-  function useLoad(callback) {
+  function useReady(callback) {
       const hasLoaded = React.useRef(false);
       if (!hasLoaded.current) {
           callback();
@@ -341,8 +347,13 @@
           (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
       });
       function getValueFunc(symbol) {
+          //获取effectWatcher，将当前的stash注册到watcher中
           const watcher = __findEffectWatcher(symbol);
           watcher === null || watcher === void 0 ? void 0 : watcher.registerStash(getValue.current);
+          //获取renderWatcher，将当前的stash注册到watcher中
+          const renderWathcer = __findRenderWatcher(symbol);
+          if (renderWathcer)
+              renderWathcer.registerStash(getValue.current);
           return subject.current.getValue();
       }
       getValueFunc.observable = subject.current.asObservable();
@@ -371,7 +382,7 @@
       };
       const id = useSymbol();
       const watcher = React.useRef();
-      useLoad(() => {
+      useReady(() => {
           watcher.current = __createEffectWatcher(id, inputFn, subject.current);
           watcher.current.load();
       });
@@ -385,7 +396,7 @@
   function useWatchEffect(callback) {
       const id = useSymbol();
       const watcher = React.useRef();
-      useLoad(() => {
+      useReady(() => {
           watcher.current = __createEffectWatcher(id, callback);
           watcher.current.load();
       });
@@ -494,7 +505,7 @@
               throw new Error(err);
           });
       };
-      useLoad(() => {
+      useReady(() => {
           if (options.auto)
               request(options.reqData);
       });
@@ -527,7 +538,7 @@
           reqData: {}
       };
       /** 设置请求配置以及上层组件注入进来的配置项 */
-      const options = React.useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
+      const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
       const intercept = useInjector(HTTP_INTERCEPT, { optional: true });
       const customeReq = useInjector(CUSTOME_REQUEST, { optional: true });
       /** 定义http请求的相关状态变量 */
@@ -583,7 +594,7 @@
               throw new Error(err);
           });
       });
-      useLoad(() => {
+      useReady(() => {
           if (options.auto)
               request.current(options.reqData);
       });
@@ -618,7 +629,7 @@
       const querysRef = React.useRef(querys);
       /** 初始化分页信息 */
       const pageRef = React.useRef({});
-      useLoad(() => {
+      useReady(() => {
           pageRef.current.target = setting.start;
           pageRef.current[setting['indexKey']] = setting.start;
           pageRef.current[setting['sizeKey']] = setting.size;
@@ -676,7 +687,7 @@
           pageRef.current.target = pageRef.current.__index + 1;
           loadData();
       };
-      useLoad(() => {
+      useReady(() => {
           if (setting.auto)
               loadData();
       });
@@ -725,14 +736,15 @@
   exports.SERVICE_CONTEXT = SERVICE_CONTEXT;
   exports.__runProvider = __runProvider;
   exports.createComponent = createComponent;
+  exports.render = render;
   exports.useComputed = useComputed;
   exports.useDestroy = useDestroy;
   exports.useHttp = useHttp;
   exports.useHttpClient = useHttpClient;
   exports.useInjector = useInjector;
-  exports.useLoad = useLoad;
   exports.useMounted = useMounted;
   exports.usePaging = usePaging;
+  exports.useReady = useReady;
   exports.useRefState = useRefState;
   exports.useStash = useStash;
   exports.useWatchEffect = useWatchEffect;

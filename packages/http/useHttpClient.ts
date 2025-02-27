@@ -1,6 +1,6 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
-import { useLoad } from "../common/useLoad";
+import { useReady } from "../common/useReady";
 import { useStash } from "../core/stash/useStash";
 import { useInjector } from "../core/di/useInjector";
 
@@ -24,7 +24,7 @@ export function useHttpClient<T>(
   }
 
   /** 设置请求配置以及上层组件注入进来的配置项 */
-  const options       = useMemo(() => Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url }), [localOptions, url]);
+  const options       = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
   const intercept     = useInjector<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
   const customeReq    = useInjector<{req: RequesterFunc}>(CUSTOME_REQUEST, {optional: true});
 
@@ -81,7 +81,7 @@ export function useHttpClient<T>(
     }  
   )
 
-  useLoad(() => {
+  useReady(() => {
     if(options.auto) request.current(options.reqData)
   })
 

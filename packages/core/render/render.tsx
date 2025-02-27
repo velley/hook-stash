@@ -33,7 +33,7 @@ export function render(nodeFn: () => ReactNode) {
 function SingleRender<T>(props: RenderProps<T>) {
   const { target, children } = props;
   const value = target.useState();
-  return children(value);
+  return isNullOrUndefined(value) ? <></> : children(value);
 }
 
 function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode) {
@@ -58,4 +58,8 @@ function isValidReactNode(value: any): value is ReactNode {
     return value.every(React.isValidElement);
   }
   return React.isValidElement(value);
+}
+
+function isNullOrUndefined(value: any): value is null | undefined {
+  return value === null || value === undefined;
 }

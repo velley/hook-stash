@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { BehaviorSubject } from "rxjs";
 import { EffectReturn, Stash } from "../../../domain/stash";
-import { useLoad } from "../../common/useLoad";
 import { __createEffectWatcher, __findEffectWatcher, EffectWatcher } from "./watcher";
 import { useSymbol } from "../../common/useSymbol";
 import { useDestroy } from "../../common/useDestroy";
 import { __findRenderWatcher } from "../render/watcher";
+import { useReady } from "../../common/useReady";
 
 export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
@@ -21,8 +21,8 @@ export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null>
     watcher?.registerStash(getValue.current);     
 
     //获取renderWatcher，将当前的stash注册到watcher中
-      const renderWathcer = __findRenderWatcher(symbol);
-      if(renderWathcer) renderWathcer.registerStash(getValue.current);
+    const renderWathcer = __findRenderWatcher(symbol);
+    if(renderWathcer) renderWathcer.registerStash(getValue.current);
      
     return subject.current.getValue();  
   }
@@ -54,7 +54,7 @@ export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null>
 	
 	const id = useSymbol();   
 	const watcher = useRef<EffectWatcher<T | null>>();
-	useLoad(() => {
+	useReady(() => {
 		watcher.current = __createEffectWatcher(id, inputFn, subject.current) as EffectWatcher<T | null>;
 		watcher.current.load();
 	})

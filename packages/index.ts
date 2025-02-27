@@ -8,7 +8,7 @@ export * from './core/stash/useComputed';
 export * from './core/stash/useWatchEffect';
 
 export * from './common/useRefState';
-export * from './common/useLoad';
+export * from './common/useReady';
 export * from './common/useDestroy';
 export * from './common/useMounted';
 

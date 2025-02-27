@@ -2,7 +2,7 @@ import { useRef} from "react";
 import { PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
 import { useHttpClient } from "./useHttpClient";
 import { useStash } from "../core/stash/useStash";
-import { useLoad } from "../common/useLoad";
+import { useReady } from "../common/useReady";
 import { useComputed } from "../core/stash/useComputed";
 import { Stash } from "../../domain/stash";
 import { useInjector } from "../core/di/useInjector";
@@ -53,7 +53,7 @@ export function usePaging<T>(
   /** 初始化分页信息 */
   const pageRef = useRef<Page>({} as Page);
 
-  useLoad(() => {
+  useReady(() => {
     pageRef.current.target                 = setting.start;
     pageRef.current[setting['indexKey']]   = setting.start;
     pageRef.current[setting['sizeKey']]    = setting.size;
@@ -115,7 +115,7 @@ export function usePaging<T>(
     loadData();
   }    
 
-  useLoad(() => {
+  useReady(() => {
     if(setting.auto) loadData();
   })  
 
