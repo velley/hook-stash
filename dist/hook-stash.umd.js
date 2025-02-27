@@ -302,11 +302,11 @@
       return React__default["default"].createElement(Render, null, nodeFn);
   }
   function SingleRender(props) {
-      const { target, children } = props;
+      const { target, children, placeholder } = props;
       const value = target.useState();
-      return isNullOrUndefined(value) ? React__default["default"].createElement(React__default["default"].Fragment, null) : children(value);
+      return (isNullOrUndefined(value) && placeholder) ? placeholder() : children(value);
   }
-  function _singRender(target, map) {
+  function _singRender(target, map, placeholder) {
       const renderValue = (_value, _map) => {
           const result = _map ? _map(_value) : _value;
           if (!isValidReactNode(result) && typeof result === "object" && result !== null) {
@@ -317,7 +317,7 @@
               return result;
           }
       };
-      return React__default["default"].createElement(SingleRender, { target: target, children: x => renderValue(x, map) });
+      return React__default["default"].createElement(SingleRender, { target: target, children: x => renderValue(x, map), placeholder: placeholder });
   }
   const $ = _singRender;
   // 判断输入值是否为合法的ReactNode

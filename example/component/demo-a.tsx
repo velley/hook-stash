@@ -1,22 +1,18 @@
 import React from "react";
-import { useEffect } from "react";
-import { useHttp } from "../../packages/http/useHttp";
-import { usePaging } from "../../packages/http/usePaging";
-import { useCount } from "../hooks/useCount";
-import { createComponent, useInjector } from "../../packages";
+import { createComponent, render, useInjector } from "../../packages";
+import { useAppData } from "../hooks/useAppData";
 
-export const DemoA = createComponent(
-  function () {
-    const [res, {nextPage}, state] = usePaging<any>('/api/queryOrganization', {}, {auto: true});
-    const { count } = useInjector(useCount,)  
-   
-    return (
-      <div>
-        demo A, count is {count}
-        <button onClick={_ => nextPage()}>下一页</button>
-      </div>
-    )
-  },
-  [useCount]
-)
+// 子组件可以不用createComponent包裹，但可能会导致组件函数重复执行
+export const DemoA = createComponent(() => {  
+  const { name, age } = useInjector(useAppData);
+  console.log('demoA render 打印')
+  
+  return render(() => (
+    <div style={{ border: "1px solid #999", margin: '10px 0', width: 'fit-content', padding: "10px" }}>
+      子组件：
+      <div>name: {name()}</div>
+      <div>age: {age()}</div>
+    </div>
+  ))  
+}, [])
 
