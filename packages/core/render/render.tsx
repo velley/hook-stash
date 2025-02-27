@@ -34,7 +34,7 @@ export function render(nodeFn: () => ReactNode) {
 function SingleRender<T>(props: RenderProps<T>) {
   const { target, children, placeholder } = props;
   const value = target.useState();
-  return isNullOrUndefined(value) ? (placeholder ? placeholder() : children(value)) : children(value);
+  return (isNullOrUndefined(value) && placeholder) ? placeholder() : children(value);
 }
 
 function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode, placeholder?: () => ReactNode) {
