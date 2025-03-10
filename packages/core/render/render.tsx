@@ -1,15 +1,16 @@
 import React, { ReactNode, useEffect, useState } from "react";
-import { Stash } from "../../../domain/stash";
+import { Signal } from "../../../domain/signal";
 import { useSymbol } from "../../common/useSymbol";
 import { __createRenderWatcher } from "./watcher";
 
 interface RenderProps<T> {
-  target: Stash<T>;
+  target: Signal<T>;
   children: (value: T) => ReactNode;
   placeholder?: () => ReactNode;
 }
 
 export function Render(props: {children: () => ReactNode}) {
+  const { children } = props;
 	const id = useSymbol();
 
 	const [trigger, setTrigger] = useState(0);
@@ -24,7 +25,7 @@ export function Render(props: {children: () => ReactNode}) {
 		return () => watcher.unload()
 	}, [trigger])
   
-	return props.children()  
+	return children()  
 }
 
 export function render(nodeFn: () => ReactNode) {
@@ -37,7 +38,7 @@ function SingleRender<T>(props: RenderProps<T>) {
   return (isNullOrUndefined(value) && placeholder) ? placeholder() : children(value);
 }
 
-function _singRender<T>(target: Stash<T>, map?: (value: T) => ReactNode, placeholder?: () => ReactNode) {
+function _singRender<T>(target: Signal<T>, map?: (value: T) => ReactNode, placeholder?: () => ReactNode) {
   const renderValue = (_value: T, _map?: (value: T) => ReactNode) => {
     const result = _map ? _map(_value) : _value;
     if (!isValidReactNode(result) && typeof result === "object" && result !== null) {

@@ -1,5 +1,5 @@
 {
-  "name": "@haoyi/hook-stash",
+  "name": "hook-stash",
   "version": "18.4.3",
   "description": "基于react的依赖注入库",
   "main": "dist/hook-stash.umd.js",
@@ -37,7 +37,7 @@
     "vite": "^2.8.0"
   },
   "publishConfig": {
-    "registry": "http://172.16.1.144:8081/nexus/repository/local-npm/"
+    "registry": "https://registry.npmjs.org/"
   },
   "peerDependencies": {
     "react": "^18.2.0",

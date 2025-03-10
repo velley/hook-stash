@@ -1,9 +1,9 @@
 export * from './core/di/createComponent';
 export * from './core/di/useInjector';
-export * from './core/stash/useStash';
+export * from './core/signal/useSignal';
 export * from './core/render/render';
-export * from './core/stash/useComputed';
-export * from './core/stash/useWatchEffect';
+export * from './core/signal/useComputed';
+export * from './core/signal/useWatchEffect';
 export * from './common/useRefState';
 export * from './common/useReady';
 export * from './common/useDestroy';
@@ -14,4 +14,4 @@ export * from './http/usePaging';
 /** interface */
 export * from '../domain/di';
 export * from '../domain/http';
-export * from '../domain/stash';
+export * from '../domain/signal';

@@ -1,5 +1,5 @@
 import { Subject, Subscription, combineLatest, skip } from "rxjs";
-import { Stash } from "../../../domain/stash";
+import { Signal } from "../../../domain/signal";
 import { createContext } from "react";
 
 export function __createRenderWatcher(id: symbol, callback: (symbol?: symbol) => any) {
@@ -28,7 +28,7 @@ export class RenderWatcher {
 	id: symbol;
 	private callback: (symbol?: symbol) => any;
 	context: React.Context<any>;
-	stashArray: Stash<unknown>[] = [];
+	signalArray: Signal<unknown>[] = [];
 	private __subscription: Subscription;
 
 	constructor({ id, callback }: RenderWatcherConstructor) {
@@ -38,13 +38,13 @@ export class RenderWatcher {
 		this.context = createContext(this);
 	}
 
-	registerStash(stash: Stash<unknown>) {
-		if (this.stashArray.includes(stash)) return;
-		this.stashArray.push(stash);
+	registerSignal(signal: Signal<unknown>) {
+		if (this.signalArray.includes(signal)) return;
+		this.signalArray.push(signal);
 	}
 
 	load() {		
-		const observables = this.stashArray.map(stash => stash.observable);
+		const observables = this.signalArray.map(signal => signal.observable);
 		this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(
 			() => {
 				this.callback();

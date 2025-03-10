@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BehaviorSubject } from "rxjs";
-import { EffectReturn, SetStash, Stash } from "../../../domain/stash";
+import { EffectReturn, SetSignal, Signal } from "../../../domain/signal";
 import { __findEffectWatcher } from "./watcher";
 import { useDestroy } from "../../common/useDestroy";
 import { __findRenderWatcher } from "../render/watcher";
@@ -16,7 +16,7 @@ import { __findRenderWatcher } from "../render/watcher";
  *  - getValue 用于获取实时值
  *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
  * @example 
- * const [getValue, setValue] = useStash(0);
+ * const [getValue, setValue] = useSignal(0);
  * cont count = getValue.useState(); 
  * useEffect(() => {
  *  setTimeout(() => {
@@ -25,7 +25,7 @@ import { __findRenderWatcher } from "../render/watcher";
  * }, [setValue])
  * return <div>{count}</div>
  */
-export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
+export function useSignal<T>(initValue: T): [Signal<T>, SetSignal<T>] {
   const subject   = useRef( new BehaviorSubject<T>(initValue) );   
   const getValue  = useRef(getValueFunc);
   const setValue  = useRef(setValueFunc);
@@ -35,13 +35,13 @@ export function useStash<T>(initValue: T): [Stash<T>, SetStash<T>] {
   })
   
   function getValueFunc(symbol?: symbol) {
-    //获取effectWatcher，将当前的stash注册到watcher中
+    //获取effectWatcher，将当前的signal注册到watcher中
     const effectWatcher = __findEffectWatcher(symbol);
-    effectWatcher?.registerStash(getValue.current);    
+    effectWatcher?.registerSignal(getValue.current);    
     
-    //获取renderWatcher，将当前的stash注册到watcher中
+    //获取renderWatcher，将当前的signal注册到watcher中
     const renderWathcer = __findRenderWatcher(symbol);
-    if(renderWathcer) renderWathcer.registerStash(getValue.current);
+    if(renderWathcer) renderWathcer.registerSignal(getValue.current);
 
     return subject.current.getValue();  
   }

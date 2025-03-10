@@ -3,7 +3,7 @@ import { createComponent, render, useInjector } from "../../packages";
 import { useAppData } from "../hooks/useAppData";
 
 // 子组件可以不用createComponent包裹，但可能会导致组件函数重复执行
-export const DemoA = createComponent(() => {  
+export const DemoA = () => {  
   const { name, age } = useInjector(useAppData);
   console.log('demoA render 打印')
   
@@ -14,5 +14,5 @@ export const DemoA = createComponent(() => {
       <div>age: {age()}</div>
     </div>
   ))  
-}, [])
+}
 

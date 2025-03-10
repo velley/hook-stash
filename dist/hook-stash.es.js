@@ -121,25 +121,25 @@ function __findEffectWatcher(id) {
 }
 class EffectWatcher {
     constructor({ id, callback, listener }) {
-        this.stashArray = [];
+        this.signalArray = [];
         this.id = id;
         this.callback = callback;
         EffectWatcher.EFFECT_WATCHER.push(this);
         EffectWatcher.ACTIVE_WATCHER = this;
-        const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的stash getter以便进行依赖注册
+        const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的signal getter以便进行依赖注册
         EffectWatcher.ACTIVE_WATCHER = null; // 执行完毕后需要将activeWatcher置空
         if (listener) {
             this.__listener = listener;
             this.__listener.next(result);
         }
     }
-    registerStash(stash) {
-        if (this.stashArray.includes(stash))
+    registerSignal(signal) {
+        if (this.signalArray.includes(signal))
             return;
-        this.stashArray.push(stash);
+        this.signalArray.push(signal);
     }
     load() {
-        const observables = this.stashArray.map(stash => stash.observable);
+        const observables = this.signalArray.map(signal => signal.observable);
         this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(() => {
             const res = this.callback(this.id);
             if (this.__listener)
@@ -181,19 +181,19 @@ function __findRenderWatcher(id) {
 }
 class RenderWatcher {
     constructor({ id, callback }) {
-        this.stashArray = [];
+        this.signalArray = [];
         this.id = id;
         this.callback = callback;
         RenderWatcher.RENDER_WATCHER.push(this);
         this.context = createContext(this);
     }
-    registerStash(stash) {
-        if (this.stashArray.includes(stash))
+    registerSignal(signal) {
+        if (this.signalArray.includes(signal))
             return;
-        this.stashArray.push(stash);
+        this.signalArray.push(signal);
     }
     load() {
-        const observables = this.stashArray.map(stash => stash.observable);
+        const observables = this.signalArray.map(signal => signal.observable);
         this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(() => {
             this.callback();
         });
@@ -216,7 +216,7 @@ RenderWatcher.RENDER_WATCHER = [];
  *  - getValue 用于获取实时值
  *  - setValue 用于设置值，可以传入一个新值或者一个函数，函数接受旧值并返回新值
  * @example
- * const [getValue, setValue] = useStash(0);
+ * const [getValue, setValue] = useSignal(0);
  * cont count = getValue.useState();
  * useEffect(() => {
  *  setTimeout(() => {
@@ -225,7 +225,7 @@ RenderWatcher.RENDER_WATCHER = [];
  * }, [setValue])
  * return <div>{count}</div>
  */
-function useStash(initValue) {
+function useSignal(initValue) {
     const subject = useRef(new BehaviorSubject(initValue));
     const getValue = useRef(getValueFunc);
     const setValue = useRef(setValueFunc);
@@ -234,13 +234,13 @@ function useStash(initValue) {
         (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
     });
     function getValueFunc(symbol) {
-        //获取effectWatcher，将当前的stash注册到watcher中
+        //获取effectWatcher，将当前的signal注册到watcher中
         const effectWatcher = __findEffectWatcher(symbol);
-        effectWatcher === null || effectWatcher === void 0 ? void 0 : effectWatcher.registerStash(getValue.current);
-        //获取renderWatcher，将当前的stash注册到watcher中
+        effectWatcher === null || effectWatcher === void 0 ? void 0 : effectWatcher.registerSignal(getValue.current);
+        //获取renderWatcher，将当前的signal注册到watcher中
         const renderWathcer = __findRenderWatcher(symbol);
         if (renderWathcer)
-            renderWathcer.registerStash(getValue.current);
+            renderWathcer.registerSignal(getValue.current);
         return subject.current.getValue();
     }
     getValueFunc.observable = subject.current.asObservable();
@@ -279,6 +279,7 @@ function useStash(initValue) {
 }
 
 function Render(props) {
+    const { children } = props;
     const id = useSymbol();
     const [trigger, setTrigger] = useState(0);
     const handler = () => {
@@ -289,7 +290,7 @@ function Render(props) {
         watcher.load();
         return () => watcher.unload();
     }, [trigger]);
-    return props.children();
+    return children();
 }
 function render(nodeFn) {
     return React.createElement(Render, null, nodeFn);
@@ -340,13 +341,13 @@ function useComputed(inputFn) {
         (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
     });
     function getValueFunc(symbol) {
-        //获取effectWatcher，将当前的stash注册到watcher中
+        //获取effectWatcher，将当前的signal注册到watcher中
         const watcher = __findEffectWatcher(symbol);
-        watcher === null || watcher === void 0 ? void 0 : watcher.registerStash(getValue.current);
-        //获取renderWatcher，将当前的stash注册到watcher中
+        watcher === null || watcher === void 0 ? void 0 : watcher.registerSignal(getValue.current);
+        //获取renderWatcher，将当前的signal注册到watcher中
         const renderWathcer = __findRenderWatcher(symbol);
         if (renderWathcer)
-            renderWathcer.registerStash(getValue.current);
+            renderWathcer.registerSignal(getValue.current);
         return subject.current.getValue();
     }
     getValueFunc.observable = subject.current.asObservable();
@@ -535,9 +536,9 @@ function useHttpClient(url, localOptions = {}) {
     const intercept = useInjector(HTTP_INTERCEPT, { optional: true });
     const customeReq = useInjector(CUSTOME_REQUEST, { optional: true });
     /** 定义http请求的相关状态变量 */
-    const [res, setRes] = useStash(options.defaultValue);
-    const [err, setErr] = useStash(null);
-    const [state, setState] = useStash('ready');
+    const [res, setRes] = useSignal(options.defaultValue);
+    const [err, setErr] = useSignal(null);
+    const [state, setState] = useSignal('ready');
     const request = useRef((query = {}) => {
         setState('pending');
         return new Promise(resolve => {
@@ -638,7 +639,7 @@ function usePaging(url, querys = {}, localSetting = {}) {
     });
     /** 定义分页请求逻辑 */
     const [, request, httpState] = useHttpClient(url, Object.assign(Object.assign({}, setting), { auto: false }));
-    const [currentPagingData, setCurrentPagingData] = useStash([]);
+    const [currentPagingData, setCurrentPagingData] = useSignal([]);
     const loadData = () => {
         if (httpState() === 'pending')
             return;
@@ -720,5 +721,5 @@ function usePaging(url, querys = {}, localSetting = {}) {
     ];
 }
 
-export { $, ACTIVE_CACHE, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, Render, SERVICE_CONTEXT, __runProvider, createComponent, render, useComputed, useDestroy, useHttp, useHttpClient, useInjector, useMounted, usePaging, useReady, useRefState, useStash, useWatchEffect };
+export { $, ACTIVE_CACHE, CUSTOME_REQUEST, HTTP_INTERCEPT, PAGING_SETTING, Render, SERVICE_CONTEXT, __runProvider, createComponent, render, useComputed, useDestroy, useHttp, useHttpClient, useInjector, useMounted, usePaging, useReady, useRefState, useSignal, useWatchEffect };
 //# sourceMappingURL=hook-stash.es.js.map

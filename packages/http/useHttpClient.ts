@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { CUSTOME_REQUEST, HttpIntercept, HttpState, HTTP_INTERCEPT, RequesterFunc, RequestOptions } from "../../domain/http";
 import { useReady } from "../common/useReady";
-import { useStash } from "../core/stash/useStash";
+import { useSignal } from "../core/signal/useSignal";
 import { useInjector } from "../core/di/useInjector";
 
 /**
@@ -29,9 +29,9 @@ export function useHttpClient<T>(
   const customeReq    = useInjector<{req: RequesterFunc}>(CUSTOME_REQUEST, {optional: true});
 
   /** 定义http请求的相关状态变量 */
-  const [res, setRes]        = useStash<T>(options.defaultValue as T);
-  const [err, setErr]        = useStash<Error | null>(null);
-  const [state, setState]    = useStash<HttpState>('ready');  
+  const [res, setRes]        = useSignal<T>(options.defaultValue as T);
+  const [err, setErr]        = useSignal<Error | null>(null);
+  const [state, setState]    = useSignal<HttpState>('ready');  
 
   const request =  useRef(
     (query: any = {}) => {

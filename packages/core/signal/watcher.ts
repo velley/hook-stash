@@ -1,5 +1,5 @@
 import { Subject, Subscription, combineLatest, skip } from "rxjs";
-import { Stash } from "../../../domain/stash";
+import { Signal } from "../../../domain/signal";
 
 export function __createEffectWatcher<T = unknown>(id: symbol, callback: (symbol?: symbol) => any, listener?: Subject<T>) {
 	const exit = EffectWatcher.EFFECT_WATCHER.find(watcher => watcher.id === id);
@@ -28,7 +28,7 @@ export class EffectWatcher<T = unknown> {
 
 	id: symbol;
 	private callback: (symbol?: symbol) => any;
-	private stashArray: Stash<unknown>[] = [];
+	private signalArray: Signal<unknown>[] = [];
 
 	private __listener?: Subject<T>;
 	private __subscription: Subscription;
@@ -38,7 +38,7 @@ export class EffectWatcher<T = unknown> {
 		this.callback = callback;
 		EffectWatcher.EFFECT_WATCHER.push(this);
 		EffectWatcher.ACTIVE_WATCHER = this;
-		const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的stash getter以便进行依赖注册
+		const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的signal getter以便进行依赖注册
 		EffectWatcher.ACTIVE_WATCHER = null; // 执行完毕后需要将activeWatcher置空
 		if (listener) {
 			this.__listener = listener;
@@ -46,13 +46,13 @@ export class EffectWatcher<T = unknown> {
 		}
 	}
 
-	registerStash(stash: Stash<unknown>) {
-		if (this.stashArray.includes(stash)) return;
-		this.stashArray.push(stash);
+	registerSignal(signal: Signal<unknown>) {
+		if (this.signalArray.includes(signal)) return;
+		this.signalArray.push(signal);
 	}
 
 	load() {
-		const observables = this.stashArray.map(stash => stash.observable);
+		const observables = this.signalArray.map(signal => signal.observable);
 		this.__subscription = combineLatest(observables).pipe(skip(1)).subscribe(
 			() => {
 				const res = this.callback(this.id);

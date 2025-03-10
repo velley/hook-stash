@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { BehaviorSubject } from "rxjs";
-import { EffectReturn, Stash } from "../../../domain/stash";
+import { EffectReturn, Signal } from "../../../domain/signal";
 import { __createEffectWatcher, __findEffectWatcher, EffectWatcher } from "./watcher";
 import { useSymbol } from "../../common/useSymbol";
 import { useDestroy } from "../../common/useDestroy";
 import { __findRenderWatcher } from "../render/watcher";
 import { useReady } from "../../common/useReady";
 
-export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null> {
+export function useComputed<T>(inputFn: (symbol?: symbol) => T): Signal<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
 	const getValue  = useRef(getValueFunc);
 
@@ -16,13 +16,13 @@ export function useComputed<T>(inputFn: (symbol?: symbol) => T): Stash<T | null>
   })
 	
   function getValueFunc(symbol?: symbol) {
-    //获取effectWatcher，将当前的stash注册到watcher中
+    //获取effectWatcher，将当前的signal注册到watcher中
     const watcher = __findEffectWatcher(symbol);
-    watcher?.registerStash(getValue.current);     
+    watcher?.registerSignal(getValue.current);     
 
-    //获取renderWatcher，将当前的stash注册到watcher中
+    //获取renderWatcher，将当前的signal注册到watcher中
     const renderWathcer = __findRenderWatcher(symbol);
-    if(renderWathcer) renderWathcer.registerStash(getValue.current);
+    if(renderWathcer) renderWathcer.registerSignal(getValue.current);
      
     return subject.current.getValue();  
   }

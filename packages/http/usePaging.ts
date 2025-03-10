@@ -1,10 +1,10 @@
 import { useRef} from "react";
 import { PagingSetting, PagingState, PAGING_SETTING, RequestOptions } from "../../domain/http";
 import { useHttpClient } from "./useHttpClient";
-import { useStash } from "../core/stash/useStash";
+import { useSignal } from "../core/signal/useSignal";
 import { useReady } from "../common/useReady";
-import { useComputed } from "../core/stash/useComputed";
-import { Stash } from "../../domain/stash";
+import { useComputed } from "../core/signal/useComputed";
+import { Signal } from "../../domain/signal";
 import { useInjector } from "../core/di/useInjector";
 
 interface PagingAction {
@@ -71,7 +71,7 @@ export function usePaging<T>(
 
   /** 定义分页请求逻辑 */
   const [, request, httpState ] = useHttpClient<T>(url, {...setting, auto: false});
-  const [currentPagingData, setCurrentPagingData] = useStash<T[]>([]);
+  const [currentPagingData, setCurrentPagingData] = useSignal<T[]>([]);
 
   const loadData = () => {
     if (httpState() === 'pending') return;    
@@ -126,7 +126,7 @@ export function usePaging<T>(
   })  
   
   /** 根据请求结果设置分页请求状态 */
-  const pagingState: Stash<PagingState | null> = useComputed(() => {
+  const pagingState: Signal<PagingState | null> = useComputed(() => {
     const dataLen = currentPagingData()?.length || 0;
     switch(httpState()) {
       default:
