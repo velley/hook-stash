@@ -3,7 +3,7 @@ import { useContext } from "react";
 import { ComponentInjector, ProviderHook, SERVICE_CONTEXT, ACTIVE_CACHE, ComponentProvider } from "../../../domain/di";
 import { useSymbol } from "../../common/useSymbol";
 
-export function createComponent<C = { [prop: string]: unknown }>(Comp: React.FC<C>, hooks: ProviderHook<unknown>[]) {
+export function createComponent<C = { [prop: string]: any }>(Comp: React.FC<C>, hooks: ProviderHook<unknown>[]) {
   return React.memo((props: PropsWithChildren<C>) => {
     const id = useSymbol();
 

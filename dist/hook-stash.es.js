@@ -660,19 +660,16 @@ function usePaging(url, querys = {}, localSetting = {}) {
     const fresh = (param = {}) => {
         querysRef.current = Object.assign(Object.assign({}, querys), param);
         pageRef.current.target = setting.start;
-        setCurrentPagingData([]);
         loadData();
     };
     const refresh = (param = {}) => {
         querysRef.current = Object.assign(Object.assign(Object.assign({}, querys), querysRef.current), param);
         pageRef.current.target = setting.start;
-        setCurrentPagingData([]);
         loadData();
     };
     const reset = () => {
         querysRef.current = querys;
         pageRef.current.target = setting.start;
-        setCurrentPagingData([]);
         loadData();
     };
     const nextPage = () => {
