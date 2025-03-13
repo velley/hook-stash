@@ -91,21 +91,18 @@ export function usePaging<T>(
   const fresh = (param = {}) => {
     querysRef.current = { ...querys, ...param };
     pageRef.current.target = setting.start;
-    setCurrentPagingData([]);
     loadData();
   }
 
   const refresh = (param = {}) => {
     querysRef.current = { ...querys, ...querysRef.current, ...param };
     pageRef.current.target = setting.start;
-    setCurrentPagingData([]);
     loadData();
   }
 
   const reset = () => {
     querysRef.current = querys;
     pageRef.current.target = setting.start;
-    setCurrentPagingData([]);
     loadData();
   }
 
