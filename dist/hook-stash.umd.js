@@ -173,18 +173,18 @@
 
   function __createRenderWatcher(id, callback) {
       const exit = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-      if (exit)
+      if (exit) {
+          RenderWatcher.ACTIVE_WATCHER = exit;
           return exit;
+      }
       const watcher = new RenderWatcher({ id, callback });
       return watcher;
   }
   function __findRenderWatcher(id) {
-      if (id) {
+      if (id)
           return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-      }
-      else {
-          return RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
-      }
+      const watcher = RenderWatcher.ACTIVE_WATCHER || RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
+      return watcher;
   }
   class RenderWatcher {
       constructor({ id, callback }) {
@@ -192,6 +192,7 @@
           this.id = id;
           this.callback = callback;
           RenderWatcher.RENDER_WATCHER.push(this);
+          RenderWatcher.ACTIVE_WATCHER = this;
           this.context = React.createContext(this);
       }
       registerSignal(signal) {
@@ -204,13 +205,17 @@
           this.__subscription = rxjs.combineLatest(observables).pipe(rxjs.skip(1)).subscribe(() => {
               this.callback();
           });
-          RenderWatcher.RENDER_WATCHER.pop(); //订阅后需要立即移除最新的watcher
+          //订阅后需要立即将当前watcher移除
+          RenderWatcher.ACTIVE_WATCHER = null;
+          RenderWatcher.RENDER_WATCHER.at(-1);
+          RenderWatcher.RENDER_WATCHER.pop();
       }
       unload() {
           this.__subscription.unsubscribe();
       }
   }
   RenderWatcher.RENDER_WATCHER = [];
+  RenderWatcher.ACTIVE_WATCHER = null;
 
   /**
    * @function 创建一个可观察值
@@ -288,15 +293,16 @@
   function Render(props) {
       const { children } = props;
       const id = useSymbol();
-      const [, setTrigger] = React.useState(0);
+      const [trigger, setTrigger] = React.useState(0);
       const handler = () => {
           setTrigger(v => v + 1);
       };
-      const watcherRef = React.useRef(__createRenderWatcher(id, handler));
+      const watcherRef = __createRenderWatcher(id, handler);
       React.useEffect(() => {
-          watcherRef.current.load();
-          return () => watcherRef.current.unload();
-      }, []);
+          console.log('fresh watcher', watcherRef);
+          watcherRef.load();
+          return () => watcherRef.unload();
+      }, [trigger]);
       return children(id);
   }
   function render(nodeFn) {
@@ -398,8 +404,9 @@
       const id = useSymbol();
       const watcher = React.useRef();
       useReady(() => {
+          var _a;
           watcher.current = __createEffectWatcher(id, callback);
-          watcher.current.load();
+          (_a = watcher.current) === null || _a === void 0 ? void 0 : _a.load();
       });
       useDestroy(() => {
           var _a;

@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useRef, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { Signal } from "../../../domain/signal";
 import { useSymbol } from "../../common/useSymbol";
 import { __createRenderWatcher } from "./watcher";
@@ -19,6 +19,7 @@ export function Render(props: {children: (id?: symbol) => ReactNode}) {
   const watcherRef = __createRenderWatcher(id, handler); 
 
 	useEffect(() => {		
+    console.log('fresh watcher', watcherRef)
 		watcherRef.load();
 		return () => watcherRef.unload()
 	})

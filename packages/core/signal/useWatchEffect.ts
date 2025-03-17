@@ -10,7 +10,7 @@ export function useWatchEffect(callback: (symbol?: symbol) => void) {
 
 	useReady(() => {
 		watcher.current = __createEffectWatcher(id, callback);
-		watcher.current.load();
+		watcher.current?.load();
 	})
 
 	useDestroy(() => {

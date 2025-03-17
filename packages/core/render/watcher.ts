@@ -13,11 +13,8 @@ export function __createRenderWatcher(id: symbol, callback: (symbol?: symbol) =>
 }
 
 export function __findRenderWatcher(id?: symbol) {
-	if (id) {
-		return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-	} 
+	if (id) return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);	
 	const watcher = RenderWatcher.ACTIVE_WATCHER || RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
-	if(!watcher) throw new Error('RenderWatcher not found');
 	return watcher;	
 }
 
