@@ -4,7 +4,10 @@ import { createContext } from "react";
 
 export function __createRenderWatcher(id: symbol, callback: (symbol?: symbol) => any) {
 	const exit = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-	if (exit) return exit;
+	if (exit) {
+		RenderWatcher.ACTIVE_WATCHER = exit;
+		return exit;
+	};
 	const watcher = new RenderWatcher({id, callback});
 	return watcher;
 }
@@ -12,9 +15,10 @@ export function __createRenderWatcher(id: symbol, callback: (symbol?: symbol) =>
 export function __findRenderWatcher(id?: symbol) {
 	if (id) {
 		return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-	} else {
-		return RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
-	}
+	} 
+	const watcher = RenderWatcher.ACTIVE_WATCHER || RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
+	if(!watcher) throw new Error('RenderWatcher not found');
+	return watcher;	
 }
 
 
@@ -24,6 +28,7 @@ interface RenderWatcherConstructor {
 }
 export class RenderWatcher {
 	static RENDER_WATCHER: RenderWatcher[] = [];
+	static ACTIVE_WATCHER: RenderWatcher | null = null;
 
 	id: symbol;
 	private callback: (symbol?: symbol) => any;
@@ -35,6 +40,7 @@ export class RenderWatcher {
 		this.id = id;
 		this.callback = callback;
 		RenderWatcher.RENDER_WATCHER.push(this);
+		RenderWatcher.ACTIVE_WATCHER = this
 		this.context = createContext(this);
 	}
 
@@ -50,7 +56,10 @@ export class RenderWatcher {
 				this.callback();
 			}
 		);
-		RenderWatcher.RENDER_WATCHER.pop(); //订阅后需要立即移除最新的watcher
+		//订阅后需要立即将当前watcher移除
+		RenderWatcher.ACTIVE_WATCHER = null;
+		const last = RenderWatcher.RENDER_WATCHER.at(-1);
+		if(last === this) RenderWatcher.RENDER_WATCHER.pop();
 	}
 
 	unload() {

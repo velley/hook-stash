@@ -288,16 +288,16 @@
   function Render(props) {
       const { children } = props;
       const id = useSymbol();
-      const [trigger, setTrigger] = React.useState(0);
+      const [, setTrigger] = React.useState(0);
       const handler = () => {
           setTrigger(v => v + 1);
       };
-      const watcher = __createRenderWatcher(id, handler);
+      const watcherRef = React.useRef(__createRenderWatcher(id, handler));
       React.useEffect(() => {
-          watcher.load();
-          return () => watcher.unload();
-      }, [trigger]);
-      return children();
+          watcherRef.current.load();
+          return () => watcherRef.current.unload();
+      }, []);
+      return children(id);
   }
   function render(nodeFn) {
       return React__default["default"].createElement(Render, null, nodeFn);

@@ -1,7 +1,7 @@
 import React, { ReactNode, useEffect, useRef, useState } from "react";
 import { Signal } from "../../../domain/signal";
 import { useSymbol } from "../../common/useSymbol";
-import { __createRenderWatcher, RenderWatcher } from "./watcher";
+import { __createRenderWatcher } from "./watcher";
 
 interface RenderProps<T> {
   target: Signal<T>;
@@ -16,17 +16,17 @@ export function Render(props: {children: (id?: symbol) => ReactNode}) {
 	const handler = () => {
 		setTrigger(v => v + 1)	
   }
-  const watcherRef = useRef(__createRenderWatcher(id, handler)); 
+  const watcherRef = __createRenderWatcher(id, handler); 
 
 	useEffect(() => {		
-		watcherRef.current.load();
-		return () => watcherRef.current.unload()
-	}, [])
+		watcherRef.load();
+		return () => watcherRef.unload()
+	})
   
 	return children(id)  
 }
 
-export function render(nodeFn: () => ReactNode) {
+export function render(nodeFn: (id?: symbol) => ReactNode) {
   return <Render>{nodeFn}</Render>
 }
 
