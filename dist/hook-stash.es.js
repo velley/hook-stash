@@ -1,4 +1,4 @@
-import React, { createContext, useRef, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useRef, useContext, useEffect, useState, memo, useMemo } from 'react';
 import { combineLatest, skip, BehaviorSubject } from 'rxjs';
 
 const SERVICE_CONTEXT = createContext(null);
@@ -74,7 +74,7 @@ function useInjector(input, options) {
             __runProvider(provider);
         }
         if (provider.status === 'pending') {
-            console.error(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`);
+            console.warn(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`);
         }
     }
     else {
@@ -200,8 +200,9 @@ class RenderWatcher {
         });
         //订阅后需要立即将当前watcher移除
         RenderWatcher.ACTIVE_WATCHER = null;
-        RenderWatcher.RENDER_WATCHER.at(-1);
-        RenderWatcher.RENDER_WATCHER.pop();
+        const last = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === this.id);
+        if (last)
+            RenderWatcher.RENDER_WATCHER.pop();
     }
     unload() {
         this.__subscription.unsubscribe();
@@ -283,22 +284,21 @@ function useSignal(initValue) {
     return [getValue.current, setValue.current];
 }
 
-function Render(props) {
+const Render = memo((props) => {
     const { children } = props;
     const id = useSymbol();
-    const [trigger, setTrigger] = useState(0);
+    const [_trigger, setTrigger] = useState(0);
     const handler = () => {
         setTrigger(v => v + 1);
     };
     const watcherRef = __createRenderWatcher(id, handler);
     useEffect(() => {
-        console.log('fresh watcher', watcherRef);
         watcherRef.load();
         return () => watcherRef.unload();
-    }, [trigger]);
+    });
     return children(id);
-}
-function render(nodeFn) {
+});
+function render(nodeFn, options) {
     return React.createElement(Render, null, nodeFn);
 }
 function SingleRender(props) {
@@ -422,7 +422,11 @@ function useRefState(refState) {
 
 function useMounted(callback) {
     useEffect(() => {
-        callback();
+        const fn = callback();
+        return () => {
+            if (typeof fn === "function")
+                fn();
+        };
     }, []);
 }
 

@@ -19,7 +19,7 @@ export function useInjector<C>(input: ProviderHook<C> | symbol, options?: Servic
 			__runProvider(provider);
 		}		
 		if(provider.status === 'pending') {
-			console.error(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`)
+			console.warn(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`)
 		}
 	} else {
 		const injector = useContext(SERVICE_CONTEXT);

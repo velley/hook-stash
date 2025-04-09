@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from "react";
+import React, { memo, ReactNode, useEffect, useState } from "react";
 import { Signal } from "../../../domain/signal";
 import { useSymbol } from "../../common/useSymbol";
 import { __createRenderWatcher } from "./watcher";
@@ -7,27 +7,30 @@ interface RenderProps<T> {
   target: Signal<T>;
   children: (value: T) => ReactNode;
   placeholder?: () => ReactNode;
+  debug?: boolean;
 }
 
-export function Render(props: {children: (id?: symbol) => ReactNode}) {
-  const { children } = props;
-	const id = useSymbol();  
-	const [, setTrigger] = useState(0);
-	const handler = () => {
-		setTrigger(v => v + 1)	
-  }
-  const watcherRef = __createRenderWatcher(id, handler); 
-
-	useEffect(() => {		
-    console.log('fresh watcher', watcherRef)
-		watcherRef.load();
-		return () => watcherRef.unload()
-	})
+export const Render = memo(
+  (props: {children: (id?: symbol) => ReactNode;}) => {
+    const { children } = props;
+    const id = useSymbol();  
+    const [_trigger, setTrigger] = useState(0);
+    const handler = () => {
+      setTrigger(v => v + 1)	
+    }
+    
+    const watcherRef = __createRenderWatcher(id, handler); 
   
-	return children(id)  
-}
+    useEffect(() => {		
+      watcherRef.load();
+      return () => watcherRef.unload()
+    })
+    
+    return children(id)  
+  }
+)
 
-export function render(nodeFn: (id?: symbol) => ReactNode) {
+export function render(nodeFn: (id?: symbol) => ReactNode, options?: {debug?: boolean}) {
   return <Render>{nodeFn}</Render>
 }
 
