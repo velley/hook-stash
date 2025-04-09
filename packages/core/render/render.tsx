@@ -7,7 +7,6 @@ interface RenderProps<T> {
   target: Signal<T>;
   children: (value: T) => ReactNode;
   placeholder?: () => ReactNode;
-  debug?: boolean;
 }
 
 export const Render = memo(
@@ -30,7 +29,7 @@ export const Render = memo(
   }
 )
 
-export function render(nodeFn: (id?: symbol) => ReactNode, options?: {debug?: boolean}) {
+export function render(nodeFn: (id?: symbol) => ReactNode) {
   return <Render>{nodeFn}</Render>
 }
 
