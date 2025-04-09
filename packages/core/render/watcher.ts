@@ -55,8 +55,8 @@ export class RenderWatcher {
 		);
 		//订阅后需要立即将当前watcher移除
 		RenderWatcher.ACTIVE_WATCHER = null;
-		const current = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === this.id);
-		if(current) RenderWatcher.RENDER_WATCHER.pop();
+		const index = RenderWatcher.RENDER_WATCHER.findIndex(watcher => watcher.id === this.id);
+		if(index > -1) RenderWatcher.RENDER_WATCHER.splice(index, 1);
 	}
 
 	unload() {
