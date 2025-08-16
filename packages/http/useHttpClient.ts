@@ -89,7 +89,6 @@ export function useHttpClient<T>(
 } 
 
 function objectToUrlSearch(obj: object) {
-  console.log(obj)
   if(!obj) return '';
   let str = '';
   for(let key in obj) {

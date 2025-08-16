@@ -9,11 +9,7 @@ import { useReady } from "../../common/useReady";
 
 export function useComputed<T>(inputFn: (symbol?: symbol) => T): Signal<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
-	const getValue  = useRef(getValueFunc);
-
-  useDestroy(() => {
-    subject.current?.complete();
-  })
+	const getValue  = useRef(getValueFunc);  
 	
   function getValueFunc(symbol?: symbol) {
     //获取effectWatcher，将当前的signal注册到watcher中
@@ -54,14 +50,13 @@ export function useComputed<T>(inputFn: (symbol?: symbol) => T): Signal<T | null
 	
 	const id = useSymbol();   
 	const watcher = useRef<EffectWatcher<T | null>>();
-	useReady(() => {
-		watcher.current = __createEffectWatcher(id, inputFn, subject.current) as EffectWatcher<T | null>;
-		watcher.current.load();
-	})
 
-	useDestroy(() => {
-		watcher.current?.unload();
-	})
+  useEffect(() => {
+    watcher.current = __createEffectWatcher(id, inputFn, subject.current) as EffectWatcher<T | null>;
+		watcher.current.load();
+
+    return () => watcher.current?.unload()
+  }, [])	
 
 	return getValue.current;
 }

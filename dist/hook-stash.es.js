@@ -1,4 +1,4 @@
-import React, { createContext, useRef, useContext, useEffect, useState, memo, useMemo } from 'react';
+import React, { createContext, useRef, useContext, useState, useEffect, memo, useMemo } from 'react';
 import { combineLatest, skip, BehaviorSubject } from 'rxjs';
 
 const SERVICE_CONTEXT = createContext(null);
@@ -156,14 +156,6 @@ class EffectWatcher {
 EffectWatcher.EFFECT_WATCHER = [];
 EffectWatcher.ACTIVE_WATCHER = null;
 
-function useDestroy(callback) {
-    useEffect(() => {
-        return () => {
-            callback();
-        };
-    }, []);
-}
-
 function __createRenderWatcher(id, callback) {
     const exit = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
     if (exit) {
@@ -235,10 +227,6 @@ function useSignal(initValue) {
     const subject = useRef(new BehaviorSubject(initValue));
     const getValue = useRef(getValueFunc);
     const setValue = useRef(setValueFunc);
-    useDestroy(() => {
-        var _a;
-        (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
-    });
     function getValueFunc(symbol) {
         //获取effectWatcher，将当前的signal注册到watcher中
         const effectWatcher = __findEffectWatcher(symbol);
@@ -298,7 +286,7 @@ const Render = memo((props) => {
     });
     return children(id);
 });
-function render(nodeFn, options) {
+function render(nodeFn) {
     return React.createElement(Render, null, nodeFn);
 }
 function SingleRender(props) {
@@ -331,21 +319,9 @@ function isNullOrUndefined(value) {
     return value === null || value === undefined;
 }
 
-function useReady(callback) {
-    const hasLoaded = useRef(false);
-    if (!hasLoaded.current) {
-        callback();
-        hasLoaded.current = true;
-    }
-}
-
 function useComputed(inputFn) {
     const subject = useRef(new BehaviorSubject(null));
     const getValue = useRef(getValueFunc);
-    useDestroy(() => {
-        var _a;
-        (_a = subject.current) === null || _a === void 0 ? void 0 : _a.complete();
-    });
     function getValueFunc(symbol) {
         //获取effectWatcher，将当前的signal注册到watcher中
         const watcher = __findEffectWatcher(symbol);
@@ -382,15 +358,28 @@ function useComputed(inputFn) {
     };
     const id = useSymbol();
     const watcher = useRef();
-    useReady(() => {
+    useEffect(() => {
         watcher.current = __createEffectWatcher(id, inputFn, subject.current);
         watcher.current.load();
-    });
-    useDestroy(() => {
-        var _a;
-        (_a = watcher.current) === null || _a === void 0 ? void 0 : _a.unload();
-    });
+        return () => { var _a; return (_a = watcher.current) === null || _a === void 0 ? void 0 : _a.unload(); };
+    }, []);
     return getValue.current;
+}
+
+function useReady(callback) {
+    const hasLoaded = useRef(false);
+    if (!hasLoaded.current) {
+        callback();
+        hasLoaded.current = true;
+    }
+}
+
+function useDestroy(callback) {
+    useEffect(() => {
+        return () => {
+            callback();
+        };
+    }, []);
 }
 
 function useWatchEffect(callback) {
@@ -517,7 +506,6 @@ function useHttp(url, localOptions = {}) {
     return [res, request, state, err];
 }
 function objectToUrlSearch$1(obj) {
-    console.log(obj);
     if (!obj)
         return '';
     let str = '';
@@ -606,7 +594,6 @@ function useHttpClient(url, localOptions = {}) {
     return [res, request.current, state, err];
 }
 function objectToUrlSearch(obj) {
-    console.log(obj);
     if (!obj)
         return '';
     let str = '';

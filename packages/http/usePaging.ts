@@ -84,7 +84,7 @@ export function usePaging<T>(
           setCurrentPagingData(list);
         } else {
           setCurrentPagingData(val => val.concat(list));
-        }
+        }        
       })
   }
 
@@ -97,19 +97,19 @@ export function usePaging<T>(
   const refresh = (param = {}) => {
     querysRef.current = { ...querys, ...querysRef.current, ...param };
     pageRef.current.target = setting.start;
-    loadData();
+    return loadData();
   }
 
   const reset = () => {
     querysRef.current = querys;
     pageRef.current.target = setting.start;
-    loadData();
+    return loadData();
   }
 
   const nextPage = () => {    
     if (pagingState() === 'fulled') return;
     pageRef.current.target = pageRef.current.__index + 1;
-    loadData();
+    return loadData();
   }    
 
   useReady(() => {

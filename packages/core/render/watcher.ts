@@ -60,6 +60,6 @@ export class RenderWatcher {
 	}
 
 	unload() {
-		this.__subscription.unsubscribe();
+		this.__subscription.unsubscribe();		
 	}
 }

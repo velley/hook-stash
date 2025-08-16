@@ -3,7 +3,7 @@ import { BehaviorSubject } from "rxjs";
 import { EffectReturn, SetSignal, Signal } from "../../../domain/signal";
 import { __findEffectWatcher } from "./watcher";
 import { useDestroy } from "../../common/useDestroy";
-import { __findRenderWatcher } from "../render/watcher";
+import { __findRenderWatcher, RenderWatcher } from "../render/watcher";
 
 /**
  * @function 创建一个可观察值
@@ -28,11 +28,7 @@ import { __findRenderWatcher } from "../render/watcher";
 export function useSignal<T>(initValue: T): [Signal<T>, SetSignal<T>] {
   const subject   = useRef( new BehaviorSubject<T>(initValue) );   
   const getValue  = useRef(getValueFunc);
-  const setValue  = useRef(setValueFunc);
-
-  useDestroy(() => {    
-    subject.current?.complete();
-  })
+  const setValue  = useRef(setValueFunc); 
   
   function getValueFunc(symbol?: symbol) {
     //获取effectWatcher，将当前的signal注册到watcher中
@@ -42,7 +38,6 @@ export function useSignal<T>(initValue: T): [Signal<T>, SetSignal<T>] {
     //获取renderWatcher，将当前的signal注册到watcher中
     const renderWathcer = __findRenderWatcher(symbol);
     if(renderWathcer) renderWathcer.registerSignal(getValue.current);
-
     return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();
