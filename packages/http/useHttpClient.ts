@@ -76,6 +76,9 @@ export function useHttpClient<T>(
       .catch(err => {      
         setState('failed');
         setErr(err);
+        if(intercept?.errorIntercept) {
+          intercept.errorIntercept(err);
+        }
         throw new Error(err);
       })
     }  

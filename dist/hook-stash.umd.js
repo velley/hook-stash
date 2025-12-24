@@ -647,7 +647,7 @@
       const [currentPagingData, setCurrentPagingData] = useSignal([]);
       const loadData = () => {
           if (httpState() === 'pending')
-              return;
+              return Promise.resolve();
           return request(Object.assign(Object.assign({}, querysRef.current), { [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size }))
               .then(res => {
               if (!res)
@@ -670,18 +670,18 @@
       const refresh = (param = {}) => {
           querysRef.current = Object.assign(Object.assign(Object.assign({}, querys), querysRef.current), param);
           pageRef.current.target = setting.start;
-          loadData();
+          return loadData();
       };
       const reset = () => {
           querysRef.current = querys;
           pageRef.current.target = setting.start;
-          loadData();
+          return loadData();
       };
       const nextPage = () => {
           if (pagingState() === 'fulled')
               return;
           pageRef.current.target = pageRef.current.__index + 1;
-          loadData();
+          return loadData();
       };
       useReady(() => {
           if (setting.auto)

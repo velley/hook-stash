@@ -5,6 +5,8 @@ export interface HttpIntercept {
   requestIntercept?: (request: Partial<RequestOptions>) => Promise<RequestOptions>;
   /** http响应拦截器 */
   responseIntercept?: (res: any) => Promise<any>;
+  /** 错误拦截器 */
+  errorIntercept?: (error: any) => Promise<any>;
 }
 
 /** 自定义http请求函数 */

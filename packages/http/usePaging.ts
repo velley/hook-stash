@@ -74,7 +74,7 @@ export function usePaging<T>(
   const [currentPagingData, setCurrentPagingData] = useSignal<T[]>([]);
 
   const loadData = () => {
-    if (httpState() === 'pending') return;    
+    if (httpState() === 'pending') return Promise.resolve();    
     return request({ ...querysRef.current, [setting['indexKey']]: pageRef.current.target, [setting['sizeKey']]: pageRef.current.__size })
       .then(res => {
         if(!res) return;
