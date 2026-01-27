@@ -1,6 +1,6 @@
 {
   "name": "hook-stash",
-  "version": "18.5.1",
+  "version": "18.5.3",
   "description": "基于react的依赖注入库",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",
@@ -37,7 +37,8 @@
     "vite": "^2.8.0"
   },
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "peerDependencies": {
     "react": "^18.2.0",

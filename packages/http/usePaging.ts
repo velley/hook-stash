@@ -80,11 +80,12 @@ export function usePaging<T>(
         if(!res) return;
         pageRef.current.total = setting.totalPlucker(res);
         const list = setting.dataPlucker(res) as T[];
-        if(pageRef.current.target === setting.start || !setting.scrollLoading) {
+        pageRef.current.__index = pageRef.current.target;    
+        if(pageRef.current.target === setting.start || !setting.scrollLoading) {             
           setCurrentPagingData(list);
-        } else {
+        } else {             
           setCurrentPagingData(val => val.concat(list));
-        }        
+        }              
       })
   }
 
@@ -114,12 +115,6 @@ export function usePaging<T>(
 
   useReady(() => {
     if(setting.auto) loadData();
-  })  
-
-  httpState.watchEffect(val => {
-    if(val === 'success') {
-      pageRef.current.__index = pageRef.current.target;
-    }
   })  
   
   /** 根据请求结果设置分页请求状态 */

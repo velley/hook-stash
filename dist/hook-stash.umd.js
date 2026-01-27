@@ -591,6 +591,9 @@
               .catch(err => {
               setState('failed');
               setErr(err);
+              if (intercept === null || intercept === void 0 ? void 0 : intercept.errorIntercept) {
+                  intercept.errorIntercept(err);
+              }
               throw new Error(err);
           });
       });
@@ -654,6 +657,7 @@
                   return;
               pageRef.current.total = setting.totalPlucker(res);
               const list = setting.dataPlucker(res);
+              pageRef.current.__index = pageRef.current.target;
               if (pageRef.current.target === setting.start || !setting.scrollLoading) {
                   setCurrentPagingData(list);
               }
@@ -686,11 +690,6 @@
       useReady(() => {
           if (setting.auto)
               loadData();
-      });
-      httpState.watchEffect(val => {
-          if (val === 'success') {
-              pageRef.current.__index = pageRef.current.target;
-          }
       });
       /** 根据请求结果设置分页请求状态 */
       const pagingState = useComputed(() => {
