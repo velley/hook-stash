@@ -1,10 +1,31 @@
 {
   "name": "hook-stash",
   "version": "18.5.3",
-  "description": "基于react的依赖注入库",
+  "description": "基于 React Hooks 的依赖注入与状态共享工具库",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",
   "typings": "dist/types/packages/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/velley/hook-stash.git"
+  },
+  "homepage": "https://github.com/velley/hook-stash#readme",
+  "bugs": {
+    "url": "https://github.com/velley/hook-stash/issues"
+  },
+  "keywords": [
+    "react",
+    "hooks",
+    "dependency-injection",
+    "di",
+    "state-management",
+    "shared-state",
+    "signal",
+    "rxjs",
+    "zustand",
+    "mobx",
+    "redux"
+  ],
   "exports": {
     ".": {
       "import": "./dist/hook-stash.es.js",
