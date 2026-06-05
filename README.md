@@ -5,21 +5,19 @@
 [![react](https://img.shields.io/badge/react-18.x-61dafb.svg)](https://react.dev/)
 [![rxjs](https://img.shields.io/badge/rxjs-7.x-d91404.svg)](https://rxjs.dev/)
 
-`hook-stash` 是一个基于 React Hooks 的工具库，目标是把常见的业务逻辑能力沉淀成可复用的 Hook 组合。
+`hook-stash` 是一个围绕 **React 依赖注入（DI）** 和 **状态共享** 构建的 Hooks 工具库。它的核心目标，是把常见业务逻辑以可复用、可组合、可注入的方式组织起来，形成更清晰的组件与逻辑边界。
 
-它更像一个“Hooks 工具箱”，帮助你在 React 项目里更优雅地组织：
+它不是一个单纯的状态库，而是一个更偏“**Hook 级架构层**”的方案：
 
-- 状态管理
-- 组件间依赖注入
-- 生命周期处理
-- 响应式数据流
-- HTTP 请求封装
-- 分页请求逻辑
+- 用 DI 组织 Hook 间的依赖关系
+- 用可共享的响应式状态连接业务模块
+- 用统一的方式封装请求、分页和生命周期逻辑
 
 ## 目录
 
 - [项目定位](#项目定位)
-- [核心特性](#核心特性)
+- [为什么选择 hook-stash](#为什么选择-hook-stash)
+- [核心能力](#核心能力)
 - [与 Zustand / MobX / Redux 的关系](#与-zustand--mobx--redux-的关系)
 - [安装](#安装)
 - [快速开始](#快速开始)
@@ -31,18 +29,40 @@
 
 ## 项目定位
 
-在 React 开发中，很多逻辑会反复出现：
+在 React 开发中，很多业务逻辑天然是“跨组件、跨层级、可复用”的：
 
-- 需要在多个组件之间共享一段逻辑
-- 需要避免把状态和请求逻辑散落在组件内部
-- 需要更灵活地组织 Hook 之间的依赖关系
-- 需要把请求、拦截器、分页、生命周期等能力统一封装
+- 页面中的多个模块需要共享同一份状态
+- 某些 Hook 需要依赖其他 Hook 的输出
+- 请求、拦截器、分页、生命周期等能力需要统一编排
+- 你希望逻辑拆分更细，但又不想引入过重的全局状态管理范式
 
-`hook-stash` 的重点不是替代 React，而是让你用更小的粒度去拆分和复用业务逻辑。
+`hook-stash` 的核心就是围绕这些问题，提供一套更贴近 React Hooks 思维的组织方式。
 
-## 核心特性
+## 为什么选择 hook-stash
 
-### 1. 可观察状态管理
+如果你已经在使用 React Hooks，`hook-stash` 可以帮助你进一步把业务逻辑拆成“可注入的能力单元”：
+
+- **DI 化组织逻辑**：通过 `createComponent` 和 `useInjector` 建立 Hook 依赖注入关系
+- **状态共享更自然**：通过 `useSignal` 让状态成为可共享、可观察的数据源
+- **逻辑和状态一起封装**：把数据、方法、副作用放在同一个 Hook 里复用
+- **更适合 Hooks 体系**：不强迫你切换到 reducer/action/store 的写法
+
+## 核心能力
+
+### 1. 依赖注入（DI）
+
+`createComponent` + `useInjector` 是 `hook-stash` 最核心的能力。
+
+你可以把某个 Hook 的返回值视为一个 provider，再由子组件或下游 Hook 注入使用。
+
+适合场景：
+
+- 将复杂业务拆成多个独立 Hook
+- 在组件层统一提供依赖
+- 在子组件或下游 Hook 中按需获取逻辑能力
+- 将状态、方法、派生值封装在同一个逻辑模块中
+
+### 2. 状态共享
 
 `useSignal` 提供了一种基于 `BehaviorSubject` 的可观察状态方案。
 
@@ -52,43 +72,18 @@
 - 需要在 Hook 中使用响应式数据流
 - 希望比 `useState` 更灵活地控制状态读取和更新
 
-### 2. Hook 依赖注入
+### 3. 面向业务的逻辑编排
 
-`createComponent` + `useInjector` 让 Hook 之间可以通过注入方式组织依赖。
+`hook-stash` 不只是“状态管理”，它更适合做业务逻辑编排：
 
-适合场景：
-
-- 将复杂业务拆成多个独立 Hook
-- 在组件层统一提供依赖
-- 在子组件或下游 Hook 中按需获取逻辑能力
-
-### 3. 生命周期与通用辅助 Hook
-
-内置了一批常用辅助 Hook：
-
-- `useReady`：首次执行一次
-- `useMounted`：组件挂载时执行
-- `useDestroy`：组件卸载时执行
-- `useRefState`：对象状态的局部合并更新
-- `useSymbol`：生成组件级唯一标识
-
-### 4. 请求与分页封装
-
-库中提供了请求相关 Hook：
-
-- `useHttpClient`：推荐使用的请求 Hook
-- `usePaging`：分页请求封装
-- `useHttp`：旧版请求方案，已标记为 deprecated
-
-它们适合：
-
-- 统一管理请求状态
-- 注入请求拦截器
-- 封装分页加载、翻页、刷新等逻辑
+- Hook 之间可以互相依赖
+- 状态与方法可以一起注入
+- 页面级逻辑可以拆分成多个可复用模块
+- 请求、分页、生命周期可统一纳入同一套组织方式
 
 ## 与 Zustand / MobX / Redux 的关系
 
-`hook-stash` 可以在**部分场景中平替** Zustand / MobX / Redux，尤其适合：
+`hook-stash` 可以在**很多业务场景中平替** Zustand / MobX / Redux，尤其适合：
 
 - 中小型 React 项目
 - 更偏 Hook 组合式的状态组织方式
@@ -98,18 +93,18 @@
 
 | 维度 | hook-stash | Zustand | MobX | Redux |
 | --- | --- | --- | --- | --- |
-| 核心理念 | Hook 组合 + 响应式状态 + 依赖注入 | 轻量全局 store | 响应式可观察状态 | 单向数据流 + action/reducer |
-| 上手方式 | 更贴近 React Hooks | 很轻量 | 偏响应式思维 | 规范更强，样板较多 |
+| 核心定位 | Hook 级 DI + 状态共享 + 逻辑编排 | 轻量全局 store | 响应式可观察状态 | 单向数据流 + action/reducer |
 | 组织方式 | 以 Hook 为中心 | 以 store 为中心 | 以 observable 为中心 | 以 store/action/reducer 为中心 |
-| 适合场景 | Hook 化业务逻辑封装、复用、注入 | 轻量全局状态管理 | 复杂响应式状态 | 大型项目、严格状态流转 |
+| 状态与逻辑关系 | 状态、方法、副作用可一起封装 | 主要围绕 store | 主要围绕响应式对象 | 主要围绕状态流转 |
+| 适合场景 | Hook 化业务逻辑封装、注入、共享 | 轻量全局状态管理 | 复杂响应式状态 | 大型项目、严格状态流转 |
 | 学习成本 | 低到中 | 低 | 中 | 中到高 |
-| 工程风格 | 更灵活、更贴近函数式组件 | 简洁直接 | 响应式能力强 | 约束更强、可维护性高 |
+| 风格特点 | 更贴近 React Hooks 与函数式组件 | 简洁直接 | 自动追踪较强 | 约束更强、规范清晰 |
 
 ### 简单结论
 
 - 如果你想要**一个纯状态管理库**，Zustand / MobX / Redux 仍然更直接
 - 如果你想把**状态管理和业务逻辑封装成 Hook 复用**，`hook-stash` 会更顺手
-- 如果你的项目已经大量采用 React Hooks，那么 `hook-stash` 很适合作为“状态与逻辑编排层”
+- 如果你的项目已经大量采用 React Hooks，那么 `hook-stash` 很适合作为“逻辑编排层”
 
 > 说明：这里的“平替”指的是在很多业务场景下可替代使用，而不是在所有能力边界上完全等价。
 
@@ -131,27 +126,18 @@ yarn add hook-stash react rxjs
 
 ```ts
 import {
+  createComponent,
+  useInjector,
   useSignal,
   useHttpClient,
   usePaging,
-  createComponent,
-  useInjector,
   useMounted,
   useDestroy,
   useReady
 } from 'hook-stash';
 ```
 
-### `useSignal`
-
-```ts
-const [count, setCount] = useSignal(0);
-
-console.log(count());
-setCount(v => v + 1);
-```
-
-### 自定义业务 Hook
+### 定义一个可共享的业务 Hook
 
 ```ts
 import { useSignal } from 'hook-stash';
@@ -171,7 +157,7 @@ export function useAppData() {
 }
 ```
 
-### Hook 注入
+### 在组件中注入使用
 
 ```tsx
 import React from 'react';
@@ -187,46 +173,41 @@ const App = () => {
 export default createComponent(App, [useAppData]);
 ```
 
-### 请求封装
+### 状态共享示例
 
 ```ts
-import { useHttpClient } from 'hook-stash';
+const [count, setCount] = useSignal(0);
 
-function Demo() {
-  const [, request, state] = useHttpClient('/api/user');
-
-  const load = async () => {
-    const data = await request({ id: 1 });
-    console.log(data);
-  };
-
-  return (
-    <button onClick={load} disabled={state() === 'pending'}>
-      Load
-    </button>
-  );
-}
+console.log(count());
+setCount(v => v + 1);
 ```
 
 ## 注意事项
 
-- `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
-- `useSignal` 返回的是可调用函数而不是普通状态值，读取时需要使用 `count()` 这类方式
+- `useSignal` 返回的是可调用函数，而不是普通状态值，读取时需要使用 `count()` 这类方式
 - `createComponent` 适合组织依赖型 Hook；如果只是普通组件状态管理，未必需要它
+- `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
 - 项目依赖 `react` 和 `rxjs`，使用前请确保版本兼容
+- 如果你只需要非常简单的全局 state，可能不必引入完整的 DI 组织方式
 
 ## API 概览
 
-### 核心 Hook
+### 核心能力
 
+- `createComponent`
+- `useInjector`
 - `useSignal`
 - `useComputed`
 - `useWatchEffect`
-- `createComponent`
-- `useInjector`
 - `render`
 
-### 通用 Hook
+### 请求与数据流
+
+- `useHttpClient`
+- `useHttp`
+- `usePaging`
+
+### 通用辅助 Hook
 
 - `useRefState`
 - `useReady`
@@ -234,18 +215,12 @@ function Demo() {
 - `useMounted`
 - `useSymbol`
 
-### 请求相关 Hook
-
-- `useHttpClient`
-- `useHttp`
-- `usePaging`
-
 ## 项目结构
 
-- `packages/common`：通用工具 Hook
-- `packages/core/signal`：响应式状态相关能力
 - `packages/core/di`：依赖注入相关能力
+- `packages/core/signal`：响应式状态与共享数据能力
 - `packages/http`：请求与分页能力
+- `packages/common`：通用工具 Hook
 - `example`：示例代码
 
 ## 依赖
