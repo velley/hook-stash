@@ -1,88 +1,112 @@
 # hook-stash
 
-`hook-stash` 是一个面向 React 的 Hooks 工具库，目标是把常见的状态管理、组件依赖注入、生命周期处理和异步请求等能力，封装成更易复用的 Hook 方案。
+`hook-stash` 是一个基于 React Hooks 的工具库，目标是把常见的业务逻辑能力沉淀成可复用的 Hook 组合。
 
-它更像一个“React Hooks 工具箱”：你可以在项目里按需组合使用这些能力，而不是为每个场景重复编写样板代码。
+它更像一个“Hooks 工具箱”，帮助你在 React 项目里更优雅地组织：
 
-## 它能解决什么问题
+- 状态管理
+- 组件间依赖注入
+- 生命周期处理
+- 响应式数据流
+- HTTP 请求封装
+- 分页请求逻辑
 
-在 React 开发中，我们经常会遇到这些重复场景：
+## 为什么要用 hook-stash
 
-- 组件间共享逻辑时，需要重复封装和传递状态
-- 组件内部要管理可观察的状态，但又不希望每次变更都触发完整重渲染
-- 需要更轻量的依赖注入方式来组织 Hooks 之间的依赖关系
-- 需要统一处理挂载、卸载、首次执行等生命周期逻辑
-- 需要把请求、拦截器和自定义请求适配能力封装到 Hook 中
+在 React 开发中，很多逻辑会反复出现：
 
-`hook-stash` 就是为了把这些模式沉淀成可复用的 Hook 组合。
+- 需要在多个组件之间共享一段逻辑
+- 需要避免把状态和请求逻辑散落在组件内部
+- 需要更灵活地组织 Hook 之间的依赖关系
+- 需要把请求、拦截器、分页、生命周期等能力统一封装
 
-## 核心能力
+`hook-stash` 的重点不是替代 React，而是让你用更小的粒度去拆分和复用业务逻辑。
 
-### 1. 可观察状态：`useSignal`
+## 核心用途
 
-基于 `BehaviorSubject` 实现的可观察状态方案，适合在 Hook 内部替代部分 `useState` 场景。
+### 1. 可观察状态管理
 
-特点：
+`useSignal` 提供了一种基于 `BehaviorSubject` 的可观察状态方案。
 
-- 提供读取与写入分离的状态访问方式
-- 状态变更不一定触发组件重新执行
-- 支持 `useState()`、`watchEffect()` 等使用方式
+适合场景：
 
-### 2. Hook 依赖注入：`createComponent` / `useInjector`
+- 需要共享但不一定触发整棵组件树重渲染的状态
+- 需要在 Hook 中使用响应式数据流
+- 希望比 `useState` 更灵活地控制状态读取和更新
 
-库内提供了一套 Hook 注入机制，帮助你把某个 Hook 的返回值作为“依赖”向子组件或下游逻辑传递。
+### 2. Hook 依赖注入
 
-特点：
+`createComponent` + `useInjector` 让 Hook 之间可以通过注入方式组织依赖。
 
-- 用 Hook 作为 provider
-- 在组件树中按上下文获取依赖
-- 支持跨层级查找依赖
-- 适合组织复杂的 Hook 复合逻辑
+适合场景：
 
-### 3. 生命周期辅助 Hook
+- 将复杂业务拆成多个独立 Hook
+- 在组件层统一提供依赖
+- 在子组件或下游 Hook 中按需获取逻辑能力
 
-内置了一些常用的生命周期封装：
+### 3. 生命周期与通用辅助 Hook
+
+内置了一批常用辅助 Hook：
 
 - `useReady`：首次执行一次
-- `useMounted`：挂载时执行
-- `useDestroy`：卸载时执行
-- `useRefState`：返回“引用式”的对象状态更新方式
+- `useMounted`：组件挂载时执行
+- `useDestroy`：组件卸载时执行
+- `useRefState`：对象状态的局部合并更新
 - `useSymbol`：生成组件级唯一标识
 
-### 4. HTTP 请求 Hook：`useHttp`
+### 4. 请求与分页封装
 
-提供基于 fetch 的请求封装，并支持：
+库中提供了请求相关 Hook：
 
-- 请求自动化处理
-- 请求/响应拦截
-- 自定义请求实现注入
-- 状态管理：`ready / pending / success / failed`
+- `useHttpClient`：推荐使用的请求 Hook
+- `usePaging`：分页请求封装
+- `useHttp`：旧版请求方案，已标记为 deprecated
 
-> 注：代码中 `useHttp` 已标记为 deprecated，建议优先使用新的 `useHttpClient` 方案（如项目中已有对应实现）。
+它们适合：
 
-## 适合哪些场景
+- 统一管理请求状态
+- 注入请求拦截器
+- 封装分页加载、翻页、刷新等逻辑
 
-`hook-stash` 适合：
+## 安装
 
-- 想把业务逻辑拆成更清晰的 Hook 模块
-- 想用 Hook 管理状态流转，而不是只依赖传统组件 state
-- 想在 React 项目里尝试更灵活的依赖注入式 Hook 组织方式
-- 想统一封装请求、生命周期和共享状态逻辑
+```bash
+npm install hook-stash react rxjs
+```
 
-## 示例
+或：
 
-### 使用 `useSignal`
+```bash
+yarn add hook-stash react rxjs
+```
+
+## 使用示例
+
+### 导入
 
 ```ts
-import { useSignal } from 'hook-stash';
+import {
+  useSignal,
+  useHttpClient,
+  usePaging,
+  createComponent,
+  useInjector,
+  useMounted,
+  useDestroy,
+  useReady
+} from 'hook-stash';
+```
 
+### `useSignal`
+
+```ts
 const [count, setCount] = useSignal(0);
 
 console.log(count());
 setCount(v => v + 1);
 ```
 
-### 封装复用 Hook
+### 自定义业务 Hook
 
 ```ts
 import { useSignal } from 'hook-stash';
@@ -102,22 +126,71 @@ export function useAppData() {
 }
 ```
 
-## 项目结构概览
+### Hook 注入
 
-- `packages/common`：通用 Hook
-- `packages/core/signal`：信号/可观察状态相关实现
-- `packages/core/di`：Hook 依赖注入相关实现
-- `packages/http`：HTTP 请求相关 Hook
+```tsx
+import React from 'react';
+import { createComponent, useInjector } from 'hook-stash';
+import { useAppData } from './useAppData';
+
+const App = () => {
+  const { name, age } = useInjector(useAppData);
+
+  return <div>{name()} - {age()}</div>;
+};
+
+export default createComponent(App, [useAppData]);
+```
+
+## API 概览
+
+### 核心 Hook
+
+- `useSignal`
+- `useComputed`
+- `useWatchEffect`
+- `createComponent`
+- `useInjector`
+- `render`
+
+### 通用 Hook
+
+- `useRefState`
+- `useReady`
+- `useDestroy`
+- `useMounted`
+- `useSymbol`
+
+### 请求相关 Hook
+
+- `useHttpClient`
+- `useHttp`
+- `usePaging`
+
+## 适合谁
+
+如果你的项目中已经有很多自定义 Hook，并且希望：
+
+- 更好地复用逻辑
+- 更清晰地管理状态与依赖
+- 更统一地组织请求和分页能力
+
+那么 `hook-stash` 会比较适合。
+
+## 项目结构
+
+- `packages/common`：通用工具 Hook
+- `packages/core/signal`：响应式状态相关能力
+- `packages/core/di`：依赖注入相关能力
+- `packages/http`：请求与分页能力
 - `example`：示例代码
 
-## 为什么使用 hook-stash
+## 依赖
 
-如果你的项目中已经开始大量抽取自定义 Hook，那么 `hook-stash` 可以帮助你进一步把这些 Hook 组织成一个更完整的“逻辑层”：
+本库基于：
 
-- 逻辑更易复用
-- 状态更新更灵活
-- 依赖关系更清晰
-- 代码更容易按职责拆分
+- React 18
+- RxJS 7
 
 ## 许可证
 
