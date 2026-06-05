@@ -1,5 +1,10 @@
 # hook-stash
 
+[![npm version](https://img.shields.io/npm/v/hook-stash.svg)](https://www.npmjs.com/package/hook-stash)
+[![license](https://img.shields.io/npm/l/hook-stash.svg)](LICENSE)
+[![react](https://img.shields.io/badge/react-18.x-61dafb.svg)](https://react.dev/)
+[![rxjs](https://img.shields.io/badge/rxjs-7.x-d91404.svg)](https://rxjs.dev/)
+
 `hook-stash` 是一个基于 React Hooks 的工具库，目标是把常见的业务逻辑能力沉淀成可复用的 Hook 组合。
 
 它更像一个“Hooks 工具箱”，帮助你在 React 项目里更优雅地组织：
@@ -10,6 +15,17 @@
 - 响应式数据流
 - HTTP 请求封装
 - 分页请求逻辑
+
+## 目录
+
+- [为什么要用 hook-stash](#为什么要用-hook-stash)
+- [核心用途](#核心用途)
+- [安装](#安装)
+- [快速开始](#快速开始)
+- [API 概览](#api-概览)
+- [项目结构](#项目结构)
+- [依赖](#依赖)
+- [许可证](#许可证)
 
 ## 为什么要用 hook-stash
 
@@ -80,7 +96,7 @@ npm install hook-stash react rxjs
 yarn add hook-stash react rxjs
 ```
 
-## 使用示例
+## 快速开始
 
 ### 导入
 
@@ -142,6 +158,27 @@ const App = () => {
 export default createComponent(App, [useAppData]);
 ```
 
+### 请求封装
+
+```ts
+import { useHttpClient } from 'hook-stash';
+
+function Demo() {
+  const [, request, state] = useHttpClient('/api/user');
+
+  const load = async () => {
+    const data = await request({ id: 1 });
+    console.log(data);
+  };
+
+  return (
+    <button onClick={load} disabled={state() === 'pending'}>
+      Load
+    </button>
+  );
+}
+```
+
 ## API 概览
 
 ### 核心 Hook
@@ -166,16 +203,6 @@ export default createComponent(App, [useAppData]);
 - `useHttpClient`
 - `useHttp`
 - `usePaging`
-
-## 适合谁
-
-如果你的项目中已经有很多自定义 Hook，并且希望：
-
-- 更好地复用逻辑
-- 更清晰地管理状态与依赖
-- 更统一地组织请求和分页能力
-
-那么 `hook-stash` 会比较适合。
 
 ## 项目结构
 
