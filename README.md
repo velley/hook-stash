@@ -1,9 +1,13 @@
 # hook-stash
 
+[English](./README.en.md) | 简体中文
+
 [![npm version](https://img.shields.io/npm/v/hook-stash.svg)](https://www.npmjs.com/package/hook-stash)
 [![license](https://img.shields.io/npm/l/hook-stash.svg)](LICENSE)
 [![react](https://img.shields.io/badge/react-18.x-61dafb.svg)](https://react.dev/)
 [![rxjs](https://img.shields.io/badge/rxjs-7.x-d91404.svg)](https://rxjs.dev/)
+
+> A Hooks toolkit for React focused on dependency injection, shared state, and fine-grained rendering.
 
 `hook-stash` 是一个围绕 **React 依赖注入（DI）**、**状态共享** 与 **精细渲染控制** 构建的 Hooks 工具库。它的核心目标，是把常见业务逻辑以可复用、可组合、可注入的方式组织起来，形成更清晰的组件与逻辑边界。
 
@@ -17,7 +21,7 @@
 ## 目录
 
 - [项目定位](#项目定位)
-- [为���么选择 hook-stash](#为什么选择-hook-stash)
+- [为什么选择 hook-stash](#为什么选择-hook-stash)
 - [核心能力](#核心能力)
 - [与 Zustand / MobX / Redux 的关系](#与-zustand--mobx--redux-的关系)
 - [安装](#安装)
@@ -223,7 +227,7 @@ export default createComponent(ProfilePage, [useAppData]);
 
 `hook-stash` 的核心可以理解成三层协作：
 
-### 1. DI 层：组织逻辑依赖
+### 1. DI 层：��织逻辑依赖
 
 通过 `createComponent`，你可以在组件边界上声明一组 provider hooks。
 这些 provider 的返回值会被挂到当前组件上下文中，后续子组件或下游 Hook 可以通过 `useInjector` 获取。
@@ -287,6 +291,8 @@ const UserCard = () => {
 除了 `render`，库里还提供了 `$` 这个辅助方法，用来直接渲染一个 signal：
 
 ```tsx
+import { $ } from 'hook-stash';
+
 const UserLine = () => {
   const { name, age } = useInjector(useAppData);
 
@@ -299,12 +305,12 @@ const UserLine = () => {
 };
 ```
 
-适合简单值渲染；而对于包含多个 signal 的视图片段，`render(() => ...)` 更清晰。
+适合简单值渲染；而对于包含多个 signal 的视图片区块，`render(() => ...)` 更清晰。
 
 ## 注意事项
 
 - `useSignal` 返回的是可调用函数，而不是普通状态值，读取时需要使用 `count()` 这类方式
-- `render` 建议用于真正依赖 signal 的视图片段，这样才能体现其依赖追踪价值
+- `render` 建议用于真正依赖 signal 的视图片区块，这样才能体现其依赖追踪价值
 - `createComponent` 适合组织依赖型 Hook；如果只是普通组件状态管理，未必需要它
 - `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
 - 项目依赖 `react` 和 `rxjs`，使用前请确保版本兼容
