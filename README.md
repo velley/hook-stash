@@ -5,12 +5,13 @@
 [![react](https://img.shields.io/badge/react-18.x-61dafb.svg)](https://react.dev/)
 [![rxjs](https://img.shields.io/badge/rxjs-7.x-d91404.svg)](https://rxjs.dev/)
 
-`hook-stash` 是一个围绕 **React 依赖注入（DI）** 和 **状态共享** 构建的 Hooks 工具库。它的核心目标，是把常见业务逻辑以可复用、可组合、可注入的方式组织起来，形成更清晰的组件与逻辑边界。
+`hook-stash` 是一个围绕 **React 依赖注入（DI）**、**状态共享** 与 **精细渲染控制** 构建的 Hooks 工具库。它的核心目标，是把常见业务逻辑以可复用、可组合、可注入的方式组织起来，形成更清晰的组件与逻辑边界。
 
 它不是一个单纯的状态库，而是一个更偏“**Hook 级架构层**”的方案：
 
 - 用 DI 组织 Hook 间的依赖关系
 - 用可共享的响应式状态连接业务模块
+- 用 `render` 驱动按依赖追踪的局部渲染
 - 用统一的方式封装请求、分页和生命周期逻辑
 
 ## 目录
@@ -21,6 +22,7 @@
 - [与 Zustand / MobX / Redux 的关系](#与-zustand--mobx--redux-的关系)
 - [安装](#安装)
 - [快速开始](#快速开始)
+- [render 的作用](#render-的作用)
 - [注意事项](#注意事项)
 - [API 概览](#api-概览)
 - [项目结构](#项目结构)
@@ -33,6 +35,7 @@
 
 - 页面中的多个模块需要共享同一份状态
 - 某些 Hook 需要依赖其他 Hook 的输出
+- 状态更新后，希望只重渲染真正依赖它的视图片段
 - 请求、拦截器、分页、生命周期等能力需要统一编排
 - 你希望逻辑拆分更细，但又不想引入过重的全局状态管理范式
 
@@ -44,6 +47,7 @@
 
 - **DI 化组织逻辑**：通过 `createComponent` 和 `useInjector` 建立 Hook 依赖注入关系
 - **状态共享更自然**：通过 `useSignal` 让状态成为可共享、可观察的数据源
+- **渲染粒度更细**：通过 `render` 追踪视图中实际读取过的 signal，并在变化时触发局部重渲染
 - **逻辑和状态一起封装**：把数据、方法、副作用放在同一个 Hook 里复用
 - **更适合 Hooks 体系**：不强迫你切换到 reducer/action/store 的写法
 
@@ -72,7 +76,19 @@
 - 需要在 Hook 中使用响应式数据流
 - 希望比 `useState` 更灵活地控制状态读取和更新
 
-### 3. 面向业务的逻辑编排
+### 3. 精细渲染控制
+
+`render` 是 `hook-stash` 和普通“共享状态 Hook”方案很不一样的一点。
+
+它会在渲染过程中追踪当前视图真正读取了哪些 signal，并在这些 signal 变化时只重新执行这段渲染逻辑。
+
+这意味着：
+
+- 你可以把组件逻辑和渲染逻辑拆开
+- signal 更新后，不一定需要整个组件函数重新执行
+- 更适合复杂页面中的局部渲染优化
+
+### 4. 面向业务的逻辑编排
 
 `hook-stash` 不只是“状态管理”，它更适合做业务逻辑编排：
 
@@ -93,9 +109,10 @@
 
 | 维度 | hook-stash | Zustand | MobX | Redux |
 | --- | --- | --- | --- | --- |
-| 核心定位 | Hook 级 DI + 状态共享 + 逻辑编排 | 轻量全局 store | 响应式可观察状态 | 单向数据流 + action/reducer |
+| 核心定位 | Hook 级 DI + 状态共享 + 渲染编排 | 轻量全局 store | 响应式可观察状态 | 单向数据流 + action/reducer |
 | 组织方式 | 以 Hook 为中心 | 以 store 为中心 | 以 observable 为中心 | 以 store/action/reducer 为中心 |
 | 状态与逻辑关系 | 状态、方法、副作用可一起封装 | 主要围绕 store | 主要围绕响应式对象 | 主要围绕状态流转 |
+| 渲染控制 | 可结合 `render` 做依赖追踪式局部渲染 | 依赖 selector | 自动追踪较强 | 依赖 selector / connect |
 | 适合场景 | Hook 化业务逻辑封装、注入、共享 | 轻量全局状态管理 | 复杂响应式状态 | 大型项目、严格状态流转 |
 | 学习成本 | 低到中 | 低 | 中 | 中到高 |
 | 风格特点 | 更贴近 React Hooks 与函数式组件 | 简洁直接 | 自动追踪较强 | 约束更强、规范清晰 |
@@ -104,7 +121,7 @@
 
 - 如果你想要**一个纯状态管理库**，Zustand / MobX / Redux 仍然更直接
 - 如果你想把**状态管理和业务逻辑封装成 Hook 复用**，`hook-stash` 会更顺手
-- 如果你的项目已经大量采用 React Hooks，那么 `hook-stash` 很适合作为“逻辑编排层”
+- 如果你还希望在共享状态之外，获得 **DI + 局部 render 追踪** 的组织方式，`hook-stash` 会更有优势
 
 > 说明：这里的“平替”指的是在很多业务场景下可替代使用，而不是在所有能力边界上完全等价。
 
@@ -127,17 +144,13 @@ yarn add hook-stash react rxjs
 ```ts
 import {
   createComponent,
+  render,
   useInjector,
-  useSignal,
-  useHttpClient,
-  usePaging,
-  useMounted,
-  useDestroy,
-  useReady
+  useSignal
 } from 'hook-stash';
 ```
 
-### 定义一个可共享的业务 Hook
+### 定义一个可注入、可共享的业务 Hook
 
 ```ts
 import { useSignal } from 'hook-stash';
@@ -146,45 +159,131 @@ export function useAppData() {
   const [name, setName] = useSignal('demo');
   const [age, setAge] = useSignal(18);
 
+  const changeAppData = (nextName: string, nextAge: number) => {
+    setName(nextName);
+    setAge(nextAge);
+  };
+
   return {
     name,
     age,
-    changeAppData: (nextName: string, nextAge: number) => {
-      setName(nextName);
-      setAge(nextAge);
-    }
+    changeAppData
   };
 }
 ```
 
-### 在组件中注入使用
+### 在组件中通过 DI 注入业务能力
 
 ```tsx
 import React from 'react';
-import { createComponent, useInjector } from 'hook-stash';
+import { createComponent, render, useInjector } from 'hook-stash';
 import { useAppData } from './useAppData';
 
-const App = () => {
-  const { name, age } = useInjector(useAppData);
+const ProfileView = () => {
+  const { name, age, changeAppData } = useInjector(useAppData);
 
-  return <div>{name()} - {age()}</div>;
+  return render(() => (
+    <div>
+      <p>name: {name()}</p>
+      <p>age: {age()}</p>
+      <button onClick={() => changeAppData('alice', 20)}>
+        更新资料
+      </button>
+    </div>
+  ));
 };
 
-export default createComponent(App, [useAppData]);
+export default createComponent(ProfileView, [useAppData]);
 ```
 
-### 状态共享示例
+### 多个子组件共享同一份注入状态
 
-```ts
-const [count, setCount] = useSignal(0);
+```tsx
+import React from 'react';
+import { createComponent, render, useInjector } from 'hook-stash';
+import { useAppData } from './useAppData';
 
-console.log(count());
-setCount(v => v + 1);
+const ProfileName = () => {
+  const { name } = useInjector(useAppData);
+  return render(() => <div>name: {name()}</div>);
+};
+
+const ProfileAge = () => {
+  const { age } = useInjector(useAppData);
+  return render(() => <div>age: {age()}</div>);
+};
+
+const ProfileEditor = () => {
+  const { changeAppData } = useInjector(useAppData);
+
+  return (
+    <button onClick={() => changeAppData('bob', 26)}>
+      更新共享数据
+    </button>
+  );
+};
+
+const ProfilePage = () => {
+  return (
+    <div>
+      <ProfileName />
+      <ProfileAge />
+      <ProfileEditor />
+    </div>
+  );
+};
+
+export default createComponent(ProfilePage, [useAppData]);
 ```
+
+上面这个例子更能体现 `hook-stash` 的核心价值：
+
+- `useAppData` 作为 provider 被统一注入
+- `ProfileName` 和 `ProfileAge` 共享同一份状态来源
+- 更新动作由任意子组件发起
+- 每个子组件通过 `render` 只订阅自己实际读取到的 signal
+
+## render 的作用
+
+如果只使用 `useSignal`，你拿到的是一个可共享、可观察的 signal；但真正让它和视图建立“细粒度依赖关系”的，是 `render`。
+
+### 为什么不是直接在 JSX 里写 `name()`？
+
+可以直接写，但 `render(() => ...)` 的意义在于：
+
+- 它会在执行渲染函数时记录当前读取了哪些 signal
+- 当这些 signal 发生变化时，只重新执行这一段 render 回调
+- 这样可以把“组件执行”和“视图更新”拆开
+
+### 推荐写法
+
+```tsx
+const UserCard = () => {
+  const { name, age } = useInjector(useAppData);
+
+  return render(() => (
+    <div>
+      <span>{name()}</span>
+      <span>{age()}</span>
+    </div>
+  ));
+};
+```
+
+### 不推荐只写成普通组件状态读取示例
+
+如果 README 里的例子只展示：
+
+```tsx
+<div>{name()}</div>
+```
+
+那么读者很难理解 `hook-stash` 和普通共享状态 Hook 的真正区别，因为 **`render` 才是 signal 与视图依赖追踪的关键环节**。
 
 ## 注意事项
 
 - `useSignal` 返回的是可调用函数，而不是普通状态值，读取时需要使用 `count()` 这类方式
+- `render` 建议用于真正依赖 signal 的视图片段，这样才能体现其依赖追踪价值
 - `createComponent` 适合组织依赖型 Hook；如果只是普通组件状态管理，未必需要它
 - `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
 - 项目依赖 `react` 和 `rxjs`，使用前请确保版本兼容
@@ -197,9 +296,9 @@ setCount(v => v + 1);
 - `createComponent`
 - `useInjector`
 - `useSignal`
+- `render`
 - `useComputed`
 - `useWatchEffect`
-- `render`
 
 ### 请求与数据流
 
@@ -219,6 +318,7 @@ setCount(v => v + 1);
 
 - `packages/core/di`：依赖注入相关能力
 - `packages/core/signal`：响应式状态与共享数据能力
+- `packages/core/render`：render 依赖追踪与局部渲染能力
 - `packages/http`：请求与分页能力
 - `packages/common`：通用工具 Hook
 - `example`：示例代码
