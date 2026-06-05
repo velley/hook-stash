@@ -17,11 +17,12 @@
 ## 目录
 
 - [项目定位](#项目定位)
-- [为什么选择 hook-stash](#为什么选择-hook-stash)
+- [为���么选择 hook-stash](#为什么选择-hook-stash)
 - [核心能力](#核心能力)
 - [与 Zustand / MobX / Redux 的关系](#与-zustand--mobx--redux-的关系)
 - [安装](#安装)
 - [快速开始](#快速开始)
+- [设计原理](#设计原理)
 - [render 的作用](#render-的作用)
 - [注意事项](#注意事项)
 - [API 概览](#api-概览)
@@ -158,45 +159,20 @@ import { useSignal } from 'hook-stash';
 export function useAppData() {
   const [name, setName] = useSignal('demo');
   const [age, setAge] = useSignal(18);
-
-  const changeAppData = (nextName: string, nextAge: number) => {
-    setName(nextName);
-    setAge(nextAge);
-  };
+  const [city, setCity] = useSignal('Shanghai');
 
   return {
     name,
     age,
-    changeAppData
+    city,
+    changeName: (nextName: string) => setName(nextName),
+    increaseAge: () => setAge((value) => value + 1),
+    changeCity: (nextCity: string) => setCity(nextCity),
   };
 }
 ```
 
 ### 在组件中通过 DI 注入业务能力
-
-```tsx
-import React from 'react';
-import { createComponent, render, useInjector } from 'hook-stash';
-import { useAppData } from './useAppData';
-
-const ProfileView = () => {
-  const { name, age, changeAppData } = useInjector(useAppData);
-
-  return render(() => (
-    <div>
-      <p>name: {name()}</p>
-      <p>age: {age()}</p>
-      <button onClick={() => changeAppData('alice', 20)}>
-        更新资料
-      </button>
-    </div>
-  ));
-};
-
-export default createComponent(ProfileView, [useAppData]);
-```
-
-### 多个子组件共享同一份注入状态
 
 ```tsx
 import React from 'react';
@@ -214,12 +190,13 @@ const ProfileAge = () => {
 };
 
 const ProfileEditor = () => {
-  const { changeAppData } = useInjector(useAppData);
+  const { changeName, increaseAge } = useInjector(useAppData);
 
   return (
-    <button onClick={() => changeAppData('bob', 26)}>
-      更新共享数据
-    </button>
+    <div>
+      <button onClick={() => changeName('alice')}>change name</button>
+      <button onClick={increaseAge}>age + 1</button>
+    </div>
   );
 };
 
@@ -236,12 +213,47 @@ const ProfilePage = () => {
 export default createComponent(ProfilePage, [useAppData]);
 ```
 
-上面这个例子更能体现 `hook-stash` 的核心价值：
+上面这个例子体现了三个核心点：
 
 - `useAppData` 作为 provider 被统一注入
-- `ProfileName` 和 `ProfileAge` 共享同一份状态来源
-- 更新动作由任意子组件发起
+- 多个子组件共享同一份状态来源
 - 每个子组件通过 `render` 只订阅自己实际读取到的 signal
+
+## 设计原理
+
+`hook-stash` 的核心可以理解成三层协作：
+
+### 1. DI 层：组织逻辑依赖
+
+通过 `createComponent`，你可以在组件边界上声明一组 provider hooks。
+这些 provider 的返回值会被挂到当前组件上下文中，后续子组件或下游 Hook 可以通过 `useInjector` 获取。
+
+这使得：
+
+- 业务能力不需要层层 props 传递
+- Hook 可以像“服务”一样被组织和复用
+- 一个页面可以拆成多个围绕业务职责的逻辑模块
+
+### 2. Signal 层：承载共享状态
+
+`useSignal` 内部基于 `BehaviorSubject` 实现，返回的是“读取函数 + 更新函数”组合。
+
+也就是说，它不是简单返回一个值，而是返回一个具备响应式能力的状态访问器。
+
+这使得 signal：
+
+- 可以被多个组件共享
+- 可以在不同渲染片段中被独立追踪
+- 可以作为 DI 返回值的一部分向外暴露
+
+### 3. Render 层：追踪视图依赖
+
+`render(() => ...)` 在执行时，会记录当前读取到了哪些 signal。
+这些 signal 会被注册到 render watcher 中；当 signal 发生变化时，watcher 会只触发这段 render 逻辑重新执行。
+
+这就是为什么 `hook-stash` 的重点不是“共享状态”本身，而是：
+
+- **共享状态 + DI + 局部渲染追踪** 的组合能力
 
 ## render 的作用
 
@@ -270,15 +282,24 @@ const UserCard = () => {
 };
 ```
 
-### 不推荐只写成普通组件状态读取示例
+### `$` 的作用
 
-如果 README 里的例子只展示：
+除了 `render`，库里还提供了 `$` 这个辅助方法，用来直接渲染一个 signal：
 
 ```tsx
-<div>{name()}</div>
+const UserLine = () => {
+  const { name, age } = useInjector(useAppData);
+
+  return (
+    <div>
+      <span>{$(name)}</span>
+      <span>{$(age, (value) => `${value} years old`)}</span>
+    </div>
+  );
+};
 ```
 
-那么读者很难理解 `hook-stash` 和普通共享状态 Hook 的真正区别，因为 **`render` 才是 signal 与视图依赖追踪的关键环节**。
+适合简单值渲染；而对于包含多个 signal 的视图片段，`render(() => ...)` 更清晰。
 
 ## 注意事项
 
@@ -297,6 +318,7 @@ const UserCard = () => {
 - `useInjector`
 - `useSignal`
 - `render`
+- `$`
 - `useComputed`
 - `useWatchEffect`
 
