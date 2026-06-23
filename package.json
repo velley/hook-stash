@@ -1,6 +1,6 @@
 {
   "name": "hook-stash",
-  "version": "18.5.3",
+  "version": "18.6.0",
   "description": "基于 React Hooks 的依赖注入与状态共享工具库",
   "main": "dist/hook-stash.umd.js",
   "module": "dist/hook-stash.es.js",
