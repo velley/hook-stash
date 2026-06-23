@@ -23,6 +23,25 @@
       return symbol.current;
   }
 
+  const PROVIDER_REGISTRY_CONTEXT = React.createContext(null);
+  function createProviderRegistry(parent, tokens) {
+      return {
+          parent,
+          providers: new Map(tokens.map(token => [
+              token,
+              { token, current: null, status: 'pending' },
+          ])),
+      };
+  }
+  function findProviderSlot(registry, token, skipCurrent) {
+      if (!skipCurrent) {
+          const slot = registry.providers.get(token);
+          if (slot)
+              return slot;
+      }
+      return registry.parent ? findProviderSlot(registry.parent, token, false) : null;
+  }
+
   const PROVIDER_TOKENS = new WeakMap();
   function createToken(name) {
       return Symbol(name);
@@ -43,16 +62,21 @@
       return token;
   }
 
+  const useProviderCommitEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+  function isProviderObject(value) {
+      return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
   /**
    * 将一个普通 Hook 固定到独立的 React 组件中。
    * Hook 的状态归当前 Provider 组件实例所有，返回值通过 Context 向下共享。
    */
-  function createHookProvider(useProvider) {
-      const token = getProviderToken(useProvider);
+  function createHookProvider(useProvider, token) {
       const HookProvider = ({ children }) => {
           const parentInjector = React.useContext(SERVICE_CONTEXT);
+          const registry = React.useContext(PROVIDER_REGISTRY_CONTEXT);
           const id = useSymbol();
           const value = useProvider();
+          const validProviderValue = isProviderObject(value);
           const provider = {
               token,
               value,
@@ -60,8 +84,28 @@
               status: 'committed',
               type: 'hook',
           };
-          // 每次 Provider Hook 的返回值变化时创建新的 Context value，
-          // 从而让直接返回 useState 值的普通 Hook 也能正确通知消费者。
+          // lazy 注入只能读取已提交的 Provider，避免中断渲染污染当前实例。
+          useProviderCommitEffect(() => {
+              if (!registry || !validProviderValue)
+                  return;
+              const slot = registry.providers.get(token);
+              if (!slot)
+                  return;
+              slot.current = value;
+              slot.status = 'ready';
+              return () => {
+                  if (slot.current === value) {
+                      slot.current = null;
+                      slot.status = 'pending';
+                  }
+              };
+          }, [registry, validProviderValue, value]);
+          if (!validProviderValue) {
+              throw new TypeError(`Provider Hook(${useProvider.name || token.description || 'anonymous'})必须返回非 null、非数组的 object 对象`);
+          }
+          if (!registry) {
+              throw new Error('Provider Registry 未创建，请通过createComponent注册Provider Hook');
+          }
           const injector = {
               id,
               name: useProvider.name || token.description || 'AnonymousProvider',
@@ -78,15 +122,19 @@
       // Map 同时保持旧实现中“相同 token 只注册一次”的行为。
       const hooksByToken = new Map();
       hooks.forEach(hook => hooksByToken.set(getProviderToken(hook), hook));
-      const ProviderComponents = Array.from(hooksByToken.values()).map(createHookProvider);
+      const providerEntries = Array.from(hooksByToken.entries());
+      const providerTokens = providerEntries.map(([token]) => token);
+      const ProviderComponents = providerEntries.map(([token, hook]) => createHookProvider(hook, token));
       const ComponentWithProviders = (props) => {
+          const parentRegistry = React.useContext(PROVIDER_REGISTRY_CONTEXT);
+          const registry = React.useMemo(() => createProviderRegistry(parentRegistry, providerTokens), [parentRegistry]);
           let content = React__default["default"].createElement(Comp, Object.assign({}, props));
-          // hooks[0] 位于最外层，因此后面的 Provider Hook 可以注入前面的 Hook。
+          // hooks[0] 位于最外层；立即注入仍然遵循由前向后的依赖顺序。
           for (let index = ProviderComponents.length - 1; index >= 0; index -= 1) {
               const Provider = ProviderComponents[index];
               content = React__default["default"].createElement(Provider, null, content);
           }
-          return content;
+          return (React__default["default"].createElement(PROVIDER_REGISTRY_CONTEXT.Provider, { value: registry }, content));
       };
       ComponentWithProviders.displayName = `WithProviders(${Comp.displayName || Comp.name || 'Component'})`;
       return React__default["default"].memo(ComponentWithProviders);
@@ -98,20 +146,38 @@
   const __runProvider = (provider) => provider.value;
 
   function useInjector(input, options) {
-      // 始终在固定位置读取 Context，不再根据模块级活动状态条件调用 Hook。
+      // 两个 Context 始终在固定位置读取，options.lazy 可安全地在不同渲染间切换。
       const injector = React.useContext(SERVICE_CONTEXT);
+      const registry = React.useContext(PROVIDER_REGISTRY_CONTEXT);
       const token = typeof input === 'symbol' ? input : getProviderToken(input);
-      const provider = injector ? findProviderByInjector(injector, token, (options === null || options === void 0 ? void 0 : options.skipOne) === true) : null;
+      const optional = (options === null || options === void 0 ? void 0 : options.optional) === true;
+      const skipOne = (options === null || options === void 0 ? void 0 : options.skipOne) === true;
+      const providerName = typeof input === 'function' ? input.name : token.description;
+      const getLazyProvider = React.useCallback(() => {
+          const slot = registry ? findProviderSlot(registry, token, skipOne) : null;
+          if ((slot === null || slot === void 0 ? void 0 : slot.status) === 'ready' && slot.current) {
+              return slot.current;
+          }
+          if (optional)
+              return null;
+          if (!registry) {
+              throw new Error('未找到Provider Registry，请在createComponent创建的组件树中使用lazy注入');
+          }
+          throw new Error(`Provider(${providerName || token.description || '指定 token'})尚未提交或已经卸载。` +
+              'lazy Provider 只能在事件回调、异步方法或useEffect中读取，不能在渲染阶段立即执行。');
+      }, [optional, providerName, registry, skipOne, token]);
+      if (options === null || options === void 0 ? void 0 : options.lazy)
+          return getLazyProvider;
+      const provider = injector ? findProviderByInjector(injector, token, skipOne) : null;
       if (provider)
           return provider.value;
-      if (options === null || options === void 0 ? void 0 : options.optional)
+      if (optional)
           return null;
       if (!injector) {
           throw new Error('未找到注入器，请使用createComponent创建组件并通过providers参数提供对应依赖');
       }
-      const providerName = typeof input === 'function' ? input.name : token.description;
       throw new Error(`未找到${providerName || token.description || '指定 token'}的依赖值。` +
-          '同一 createComponent 中，Provider Hook 只能注入排列在它前面的 Hook。');
+          '反向或循环依赖请使用useInjector(provider, { lazy: true })延迟解析。');
   }
   function findProviderByInjector(node, token, skipCurrent) {
       if (!skipCurrent) {

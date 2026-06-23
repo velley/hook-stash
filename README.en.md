@@ -310,7 +310,8 @@ It works well for simple value rendering, while `render(() => ...)` is usually c
 - `useSignal` returns callable accessors, not plain state values, so you read values with `count()`-style calls
 - `render` is best used for view fragments that truly depend on signals, so that dependency tracking is meaningful
 - `createComponent` is especially useful for dependency-oriented Hook composition; you may not need it for simple local component state
-- Provider Hooks in `createComponent` are scoped in array order: later Hooks may inject earlier Hooks, while reverse or circular dependencies throw an error
+- A Provider Hook must return a non-null, non-array object
+- Eager injection in `createComponent` follows array order; reverse or circular dependencies can use `useInjector(provider, { lazy: true })` and invoke the returned getter from events, asynchronous methods, or `useEffect`
 - `useHttp` is deprecated; prefer `useHttpClient`
 - The project depends on `react` and `rxjs`, so make sure your versions are compatible
 - If you only need very simple global state, you may not need the full DI-based organization model

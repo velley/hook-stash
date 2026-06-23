@@ -126,6 +126,7 @@ h1 {
 .dot-shared { background: #a18cff; }
 .dot-isolated { background: #52d8ac; }
 .dot-derived { background: #f1ba66; }
+.dot-cycle { background: #64a8ff; }
 
 .boundary-grid {
   display: grid;
@@ -327,6 +328,120 @@ h1 {
   text-align: center;
 }
 
+.cycle-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+  gap: 30px;
+  margin-top: 20px;
+  padding: 30px;
+  border: 1px solid rgba(100, 168, 255, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(100, 168, 255, 0.07), transparent 48%),
+    rgba(19, 22, 33, 0.82);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
+}
+
+.cycle-copy h2 {
+  margin: 7px 0 10px;
+  color: #f1f2f7;
+  font-size: 26px;
+  letter-spacing: -0.035em;
+}
+
+.cycle-copy p {
+  max-width: 500px;
+  margin: 0;
+  color: #8e94a8;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.cycle-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+  color: #647087;
+  font-size: 11px;
+}
+
+.cycle-path code {
+  padding: 7px 9px;
+  border: 1px solid rgba(100, 168, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(100, 168, 255, 0.055);
+  color: #91bfff;
+}
+
+.cycle-console {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(6, 8, 13, 0.56);
+}
+
+.console-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 38px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.console-row > span {
+  color: #62697d;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.console-row strong,
+.console-row output {
+  overflow: hidden;
+  color: #dbe8ff;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.console-row--result {
+  min-height: 54px;
+  border-bottom: 0;
+}
+
+.cycle-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cycle-actions button {
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #9fa5b8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cycle-actions .send-button {
+  border-color: rgba(100, 168, 255, 0.25);
+  background: rgba(100, 168, 255, 0.12);
+  color: #a8ccff;
+}
+
+.cycle-actions button:hover {
+  border-color: rgba(100, 168, 255, 0.46);
+  color: #dbe8ff;
+}
+
 @media (max-width: 780px) {
   .app-shell {
     width: min(100% - 28px, 560px);
@@ -334,6 +449,10 @@ h1 {
   }
 
   .boundary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cycle-card {
     grid-template-columns: 1fr;
   }
 
@@ -353,5 +472,15 @@ h1 {
 
   .status-badge {
     display: none;
+  }
+
+  .cycle-card {
+    padding: 20px;
+  }
+
+  .console-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 9px 0;
   }
 }

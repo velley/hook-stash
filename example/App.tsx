@@ -1,5 +1,6 @@
 import './App.css';
 import CounterBoundary from './component/demo-a';
+import CircularDependencyDemo from './component/circular-demo';
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
           <span><i className="dot dot-shared" />同一边界共享</span>
           <span><i className="dot dot-isolated" />不同边界隔离</span>
           <span><i className="dot dot-derived" />Provider 顺序依赖</span>
+          <span><i className="dot dot-cycle" />调用期循环依赖</span>
         </div>
       </header>
 
@@ -26,6 +28,8 @@ const App = () => {
         <CounterBoundary label="Boundary A" tone="violet" />
         <CounterBoundary label="Boundary B" tone="mint" />
       </section>
+
+      <CircularDependencyDemo />
 
       <footer className="page-note">
         尝试只操作一侧：同侧两个 Consumer 和 Derived Provider 会同步更新，另一侧保持不变。

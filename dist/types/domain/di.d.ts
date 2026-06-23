@@ -2,16 +2,16 @@ export interface ComponentInjector {
     id: symbol;
     name: string;
     parent: ComponentInjector | null;
-    providers: Map<symbol, ComponentProvider<unknown>>;
+    providers: Map<symbol, ComponentProvider>;
 }
-export interface ComponentProvider<T = unknown> {
+export interface ComponentProvider<T extends object = object> {
     token: symbol;
     value: T;
     origin: ProviderHook<T>;
     type: 'hook' | 'constant' | 'component';
     status: 'idle' | 'pending' | 'committed';
 }
-export interface ProviderHook<C> {
+export interface ProviderHook<C extends object = object> {
     (): C;
     token?: symbol;
 }
