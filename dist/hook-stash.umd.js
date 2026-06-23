@@ -9,6 +9,10 @@
   var React__default = /*#__PURE__*/_interopDefaultLegacy(React);
 
   const SERVICE_CONTEXT = React.createContext(null);
+  /**
+   * @deprecated Provider 的解析已改由 SERVICE_CONTEXT 完成。
+   * 保留该导出仅用于兼容旧版本，不再参与依赖注入流程。
+   */
   const ACTIVE_CACHE = { providers: null };
 
   /**
@@ -19,96 +23,103 @@
       return symbol.current;
   }
 
-  function createComponent(Comp, hooks) {
-      return React__default["default"].memo((props) => {
-          const id = useSymbol();
-          // 获取父级注入器
+  const PROVIDER_TOKENS = new WeakMap();
+  function createToken(name) {
+      return Symbol(name);
+  }
+  /**
+   * 根据 Hook 函数引用获取稳定 token。
+   * WeakMap 只保存 Hook 到 token 的静态映射，不记录任何渲染中的活动状态。
+   */
+  function getProviderToken(hook) {
+      if (hook.token)
+          return hook.token;
+      const target = hook;
+      let token = PROVIDER_TOKENS.get(target);
+      if (!token) {
+          token = createToken(hook.name || 'anonymous provider hook');
+          PROVIDER_TOKENS.set(target, token);
+      }
+      return token;
+  }
+
+  /**
+   * 将一个普通 Hook 固定到独立的 React 组件中。
+   * Hook 的状态归当前 Provider 组件实例所有，返回值通过 Context 向下共享。
+   */
+  function createHookProvider(useProvider) {
+      const token = getProviderToken(useProvider);
+      const HookProvider = ({ children }) => {
           const parentInjector = React.useContext(SERVICE_CONTEXT);
-          // 为当前组件上下文创建注入器
+          const id = useSymbol();
+          const value = useProvider();
+          const provider = {
+              token,
+              value,
+              origin: useProvider,
+              status: 'committed',
+              type: 'hook',
+          };
+          // 每次 Provider Hook 的返回值变化时创建新的 Context value，
+          // 从而让直接返回 useState 值的普通 Hook 也能正确通知消费者。
           const injector = {
               id,
-              name: Comp.name,
-              providers: new Map(),
+              name: useProvider.name || token.description || 'AnonymousProvider',
+              providers: new Map([[token, provider]]),
               parent: parentInjector,
           };
-          // 创建注入器providers
-          for (let hook of hooks) {
-              if (!hook.token)
-                  hook.token = Symbol(hook.name);
-              const token = hook.token;
-              const provider = { token, value: {}, origin: hook, status: 'idle', type: 'hook' };
-              injector.providers.set(token, provider);
-          }
-          // 将当前组件注入器的providers赋值给ACTIVE_INJECTOR作为临时存储
-          ACTIVE_CACHE.providers = injector.providers;
-          /** 解析并执行providers中的hook函数，并将调用结果存入dependsMap与CACHE_MAP */
-          ACTIVE_CACHE.providers.forEach(__runProvider);
-          // 执行完毕后需要清空临时存储
-          ACTIVE_CACHE.providers = null;
-          return (React__default["default"].createElement(SERVICE_CONTEXT.Provider, { value: injector },
-              React__default["default"].createElement(Comp, Object.assign({}, props))));
-      });
+          return (React__default["default"].createElement(SERVICE_CONTEXT.Provider, { value: injector }, children));
+      };
+      HookProvider.displayName = `${useProvider.name || 'Anonymous'}Provider`;
+      return HookProvider;
   }
-  const __runProvider = (provider) => {
-      if (provider.status !== 'idle')
-          return;
-      provider.status = 'pending';
-      if (provider.type === 'hook') {
-          const hook = provider.origin;
-          const result = hook();
-          // 若result类型为对象，则将其合并到provider.value中，否则抛出错误
-          if (typeof result === 'object' && result !== null) {
-              Object.assign(provider.value, result);
+  function createComponent(Comp, hooks) {
+      // 在组件工厂阶段生成稳定的 Provider 组件类型，不能放到渲染函数内部。
+      // Map 同时保持旧实现中“相同 token 只注册一次”的行为。
+      const hooksByToken = new Map();
+      hooks.forEach(hook => hooksByToken.set(getProviderToken(hook), hook));
+      const ProviderComponents = Array.from(hooksByToken.values()).map(createHookProvider);
+      const ComponentWithProviders = (props) => {
+          let content = React__default["default"].createElement(Comp, Object.assign({}, props));
+          // hooks[0] 位于最外层，因此后面的 Provider Hook 可以注入前面的 Hook。
+          for (let index = ProviderComponents.length - 1; index >= 0; index -= 1) {
+              const Provider = ProviderComponents[index];
+              content = React__default["default"].createElement(Provider, null, content);
           }
-          else {
-              throw new Error('provider hook函数必须返回一个对象');
-          }
-      }
-      else {
-          throw new Error('暂不支持的provider类型');
-      }
-      provider.status = 'committed';
-      return provider.value;
-  };
+          return content;
+      };
+      ComponentWithProviders.displayName = `WithProviders(${Comp.displayName || Comp.name || 'Component'})`;
+      return React__default["default"].memo(ComponentWithProviders);
+  }
+  /**
+   * @deprecated Provider Hook 现在由独立组件执行。
+   * 保留该函数仅兼容旧版本中意外暴露的内部符号。
+   */
+  const __runProvider = (provider) => provider.value;
 
   function useInjector(input, options) {
-      const token = (typeof input === 'symbol' ? input : input.token);
-      let depends;
-      if (ACTIVE_CACHE.providers && ACTIVE_CACHE.providers.has(token)) {
-          const provider = ACTIVE_CACHE.providers.get(token);
-          depends = provider.value;
-          if (provider.status === 'idle') {
-              __runProvider(provider);
-          }
-          if (provider.status === 'pending') {
-              console.warn(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`);
-          }
-      }
-      else {
-          const injector = React.useContext(SERVICE_CONTEXT);
-          if (!injector)
-              throw new Error('未找到注入器，请使用createComponent创建组件并通过provider参数提供对应依赖');
-          depends = findDepsByInjector(injector, token, options);
-      }
-      if (depends) {
-          return depends;
-      }
-      if (options && options.optional === true) {
+      // 始终在固定位置读取 Context，不再根据模块级活动状态条件调用 Hook。
+      const injector = React.useContext(SERVICE_CONTEXT);
+      const token = typeof input === 'symbol' ? input : getProviderToken(input);
+      const provider = injector ? findProviderByInjector(injector, token, (options === null || options === void 0 ? void 0 : options.skipOne) === true) : null;
+      if (provider)
+          return provider.value;
+      if (options === null || options === void 0 ? void 0 : options.optional)
           return null;
+      if (!injector) {
+          throw new Error('未找到注入器，请使用createComponent创建组件并通过providers参数提供对应依赖');
       }
-      else {
-          throw new Error(`未找到${token.description}的依赖值，请在上层Component中提供对应的providers`);
-      }
+      const providerName = typeof input === 'function' ? input.name : token.description;
+      throw new Error(`未找到${providerName || token.description || '指定 token'}的依赖值。` +
+          '同一 createComponent 中，Provider Hook 只能注入排列在它前面的 Hook。');
   }
-  function findDepsByInjector(node, token, options) {
-      var _a;
-      const deps = (_a = node.providers.get(token)) === null || _a === void 0 ? void 0 : _a.value;
-      if (deps && !(options === null || options === void 0 ? void 0 : options.skipOne))
-          return deps;
-      if (node.parent)
-          return findDepsByInjector(node.parent, token);
-      if (!node.parent)
-          return null;
+  function findProviderByInjector(node, token, skipCurrent) {
+      if (!skipCurrent) {
+          const provider = node.providers.get(token);
+          if (provider)
+              return provider;
+      }
+      return node.parent ? findProviderByInjector(node.parent, token, false) : null;
   }
 
   function __createEffectWatcher(id, callback, listener) {
@@ -522,6 +533,41 @@
       return str;
   }
 
+  /*! *****************************************************************************
+  Copyright (c) Microsoft Corporation.
+
+  Permission to use, copy, modify, and/or distribute this software for any
+  purpose with or without fee is hereby granted.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+  REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+  AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+  INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+  LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+  OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+  PERFORMANCE OF THIS SOFTWARE.
+  ***************************************************************************** */
+
+  function __rest(s, e) {
+      var t = {};
+      for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+          t[p] = s[p];
+      if (s != null && typeof Object.getOwnPropertySymbols === "function")
+          for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+              if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                  t[p[i]] = s[p[i]];
+          }
+      return t;
+  }
+
+  const DEFAULT_HTTP_OPTIONS = {
+      auto: false,
+      method: 'GET',
+      headers: {
+          'Content-Type': 'application/json'
+      },
+      reqData: {}
+  };
   /**
    * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
    * @param url 请求地址，必传
@@ -529,16 +575,8 @@
    * @returns  [请求结果, 请求方法, 请求状态, 错误信息]
    */
   function useHttpClient(url, localOptions = {}) {
-      const DEFAULT_HTTP_OPTIONS = {
-          auto: false,
-          method: 'GET',
-          headers: {
-              'Content-Type': 'application/json'
-          },
-          reqData: {}
-      };
       /** 设置请求配置以及上层组件注入进来的配置项 */
-      const options = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+      const options = Object.assign(Object.assign(Object.assign({}, DEFAULT_HTTP_OPTIONS), localOptions), { url });
       const intercept = useInjector(HTTP_INTERCEPT, { optional: true });
       const customeReq = useInjector(CUSTOME_REQUEST, { optional: true });
       /** 定义http请求的相关状态变量 */
@@ -547,6 +585,7 @@
       const [state, setState] = useSignal('ready');
       const request = React.useRef((query = {}) => {
           setState('pending');
+          setErr(null);
           return new Promise(resolve => {
               if (intercept === null || intercept === void 0 ? void 0 : intercept.requestIntercept) {
                   intercept.requestIntercept(Object.assign(Object.assign({}, options), { reqData: query })).then(finalOptions => resolve(finalOptions));
@@ -556,21 +595,32 @@
               }
           })
               .then(options2 => {
-              let reqData = options2.reqData;
+              const method = normalizeMethod(options2.method);
+              const normalizedOptions = Object.assign(Object.assign({}, options2), { method });
+              const reqData = normalizedOptions.reqData;
               if (customeReq) {
-                  return customeReq.req(options2.url, Object.assign(Object.assign({}, options2), { reqData }));
+                  return customeReq.req(normalizedOptions.url, normalizedOptions);
               }
               else {
-                  if (['GET', 'HEAD'].includes(options2.method) || !options2.method) {
-                      const searchKeys = `?${objectToUrlSearch(reqData)}`;
-                      options2.url += searchKeys;
-                      delete options2.body;
+                  const { url: requestUrl, reqData: _reqData, auto: _auto, defaultValue: _defaultValue } = normalizedOptions, fetchOptions = __rest(normalizedOptions, ["url", "reqData", "auto", "defaultValue"]);
+                  let finalUrl = requestUrl;
+                  if (['GET', 'HEAD'].includes(method)) {
+                      const search = objectToUrlSearch(reqData);
+                      if (search) {
+                          finalUrl += `${finalUrl.includes('?') ? '&' : '?'}${search}`;
+                      }
+                      delete fetchOptions.body;
                   }
                   else {
-                      options2.body = reqData instanceof FormData ? reqData : JSON.stringify(reqData);
-                      delete options2.reqData;
+                      if (reqData instanceof FormData) {
+                          fetchOptions.body = reqData;
+                          fetchOptions.headers = withoutJsonContentType(fetchOptions.headers);
+                      }
+                      else {
+                          fetchOptions.body = JSON.stringify(reqData);
+                      }
                   }
-                  return fetch(options2.url, options2);
+                  return fetch(finalUrl, fetchOptions);
               }
           })
               .then(response => {
@@ -580,7 +630,7 @@
                   return resIntercept ? resIntercept(res) : res;
               }
               else {
-                  return res.json().then((re) => resIntercept ? resIntercept(re) : re);
+                  return parseResponse(res).then((re) => resIntercept ? resIntercept(re) : re);
               }
           })
               .then(res => {
@@ -594,7 +644,7 @@
               if (intercept === null || intercept === void 0 ? void 0 : intercept.errorIntercept) {
                   intercept.errorIntercept(err);
               }
-              throw new Error(err);
+              throw err instanceof Error ? err : new Error(String(err));
           });
       });
       useReady(() => {
@@ -606,11 +656,41 @@
   function objectToUrlSearch(obj) {
       if (!obj)
           return '';
-      let str = '';
-      for (let key in obj) {
-          str += `${key}=${obj[key]}&`;
+      return Object.keys(obj)
+          .filter(key => obj[key] !== undefined)
+          .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(obj[key] == null ? '' : String(obj[key]))}`)
+          .join('&');
+  }
+  function normalizeMethod(method) {
+      return (method || 'GET').toUpperCase();
+  }
+  function parseResponse(response) {
+      if (response.status === 204 || response.status === 205) {
+          return Promise.resolve(undefined);
       }
-      return str;
+      return response.text().then(text => {
+          const body = text.trim();
+          return body ? JSON.parse(body) : undefined;
+      });
+  }
+  function withoutJsonContentType(headers) {
+      var _a;
+      if (!headers)
+          return headers;
+      if (headers instanceof Headers) {
+          const finalHeaders = new Headers(headers);
+          if (((_a = finalHeaders.get('Content-Type')) === null || _a === void 0 ? void 0 : _a.toLowerCase()) === 'application/json') {
+              finalHeaders.delete('Content-Type');
+          }
+          return finalHeaders;
+      }
+      const finalHeaders = Object.assign({}, headers);
+      const contentTypeKey = Object.keys(finalHeaders)
+          .find(key => key.toLowerCase() === 'content-type');
+      if (contentTypeKey && String(finalHeaders[contentTypeKey]).toLowerCase() === 'application/json') {
+          delete finalHeaders[contentTypeKey];
+      }
+      return finalHeaders;
   }
 
   const LocalPagingSetting = {

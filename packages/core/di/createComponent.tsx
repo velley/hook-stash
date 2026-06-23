@@ -1,63 +1,80 @@
-import React, { PropsWithChildren } from "react";
-import { useContext } from "react";
-import { ComponentInjector, ProviderHook, SERVICE_CONTEXT, ACTIVE_CACHE, ComponentProvider } from "../../../domain/di";
+import React, { PropsWithChildren, ReactElement, ReactNode, useContext } from "react";
+import { ComponentInjector, ComponentProvider, ProviderHook, SERVICE_CONTEXT } from "../../../domain/di";
 import { useSymbol } from "../../common/useSymbol";
+import { getProviderToken } from "./token";
 
-export function createComponent<C = { [prop: string]: any }>(Comp: React.FC<C>, hooks: ProviderHook<unknown>[]) {
-  return React.memo((props: PropsWithChildren<C>) => {
-    const id = useSymbol();
+interface HookProviderProps {
+  children?: ReactNode;
+}
 
-    // 获取父级注入器
+/**
+ * 将一个普通 Hook 固定到独立的 React 组件中。
+ * Hook 的状态归当前 Provider 组件实例所有，返回值通过 Context 向下共享。
+ */
+function createHookProvider(useProvider: ProviderHook<unknown>) {
+  const token = getProviderToken(useProvider);
+
+  const HookProvider = ({ children }: HookProviderProps) => {
     const parentInjector = useContext(SERVICE_CONTEXT);
+    const id = useSymbol();
+    const value = useProvider();
 
-    // 为当前组件上下文创建注入器
+    const provider: ComponentProvider<unknown> = {
+      token,
+      value,
+      origin: useProvider,
+      status: 'committed',
+      type: 'hook',
+    };
+
+    // 每次 Provider Hook 的返回值变化时创建新的 Context value，
+    // 从而让直接返回 useState 值的普通 Hook 也能正确通知消费者。
     const injector: ComponentInjector = {
       id,
-      name: Comp.name,
-      providers: new Map(),
+      name: useProvider.name || token.description || 'AnonymousProvider',
+      providers: new Map([[token, provider]]),
       parent: parentInjector,
-    }
-
-    // 创建注入器providers
-    for (let hook of hooks) {
-      if (!hook.token) hook.token = Symbol(hook.name);
-      const token = hook.token as symbol;
-      const provider: ComponentProvider = { token, value: {}, origin: hook, status: 'idle', type: 'hook' };
-      injector.providers.set(token, provider);
-    }
-
-    // 将当前组件注入器的providers赋值给ACTIVE_INJECTOR作为临时存储
-    ACTIVE_CACHE.providers = injector.providers;
-
-    /** 解析并执行providers中的hook函数，并将调用结果存入dependsMap与CACHE_MAP */
-    ACTIVE_CACHE.providers.forEach(__runProvider);
-    // 执行完毕后需要清空临时存储
-    ACTIVE_CACHE.providers = null;
+    };
 
     return (
       <SERVICE_CONTEXT.Provider value={injector}>
-        <Comp {...props} />
+        {children}
       </SERVICE_CONTEXT.Provider>
-    )
-  })
+    );
+  };
+
+  HookProvider.displayName = `${useProvider.name || 'Anonymous'}Provider`;
+  return HookProvider;
 }
 
-export const __runProvider = (provider: ComponentProvider) => {
-  if (provider.status !== 'idle') return;
-  provider.status = 'pending';
-  if (provider.type === 'hook') {
-    const hook = provider.origin as ProviderHook<unknown>;
-    const result = hook();
-    // 若result类型为对象，则将其合并到provider.value中，否则抛出错误
-    if (typeof result === 'object' && result !== null) {
-       Object.assign(provider.value, result);      
-    } else {
-      throw new Error('provider hook函数必须返回一个对象')
+export function createComponent<C extends object = Record<string, unknown>>(
+  Comp: React.FC<C>,
+  hooks: readonly ProviderHook<unknown>[]
+) {
+  // 在组件工厂阶段生成稳定的 Provider 组件类型，不能放到渲染函数内部。
+  // Map 同时保持旧实现中“相同 token 只注册一次”的行为。
+  const hooksByToken = new Map<symbol, ProviderHook<unknown>>();
+  hooks.forEach(hook => hooksByToken.set(getProviderToken(hook), hook));
+  const ProviderComponents = Array.from(hooksByToken.values()).map(createHookProvider);
+
+  const ComponentWithProviders = (props: PropsWithChildren<C>) => {
+    let content: ReactElement = <Comp {...props} />;
+
+    // hooks[0] 位于最外层，因此后面的 Provider Hook 可以注入前面的 Hook。
+    for (let index = ProviderComponents.length - 1; index >= 0; index -= 1) {
+      const Provider = ProviderComponents[index];
+      content = <Provider>{content}</Provider>;
     }
-    
-  } else {
-    throw new Error('暂不支持的provider类型')
-  }
-  provider.status = 'committed';
-  return provider.value;
+
+    return content;
+  };
+
+  ComponentWithProviders.displayName = `WithProviders(${Comp.displayName || Comp.name || 'Component'})`;
+  return React.memo(ComponentWithProviders);
 }
+
+/**
+ * @deprecated Provider Hook 现在由独立组件执行。
+ * 保留该函数仅兼容旧版本中意外暴露的内部符号。
+ */
+export const __runProvider = <T,>(provider: ComponentProvider<T>) => provider.value;

@@ -1,44 +1,43 @@
 import { useContext } from "react";
-import { ACTIVE_CACHE, ComponentInjector, ComponentProvider, ProviderHook, SERVICE_CONTEXT } from "../../../domain/di";
-import { __runProvider } from "./createComponent";
+import { ComponentInjector, ComponentProvider, ProviderHook, SERVICE_CONTEXT } from "../../../domain/di";
+import { getProviderToken } from "./token";
 
 interface ServiceOptions {
-	optional?: boolean;
-	skipOne?: boolean;
+  optional?: boolean;
+  skipOne?: boolean;
 }
 
-export function useInjector<C>(input: ProviderHook<C> | symbol,): C;
+export function useInjector<C>(input: ProviderHook<C> | symbol): C;
 export function useInjector<C>(input: ProviderHook<C> | symbol, options: ServiceOptions): C | null;
-export function useInjector<C>(input: ProviderHook<C> | symbol, options?: ServiceOptions) {
-	const token = (typeof input === 'symbol' ? input : input.token) as unknown as symbol;
-	let depends: C;
-	if (ACTIVE_CACHE.providers && ACTIVE_CACHE.providers.has(token)) {
-		const provider = ACTIVE_CACHE.providers.get(token) as ComponentProvider;
-		depends = provider.value as C;
-		if(provider.status === 'idle') {
-			__runProvider(provider);
-		}		
-		if(provider.status === 'pending') {
-			console.warn(`hook函数(${provider.origin.name})存在循环依赖，可能导致无法正常获取依赖值`)
-		}
-	} else {
-		const injector = useContext(SERVICE_CONTEXT);
-		if(!injector) throw new Error('未找到注入器，请使用createComponent创建组件并通过provider参数提供对应依赖');
-		depends = findDepsByInjector(injector, token, options);
-	}
-	if (depends) {
-		return depends
-	}
-	if (options && options.optional === true) {
-		return null
-	} else {
-		throw new Error(`未找到${token.description}的依赖值，请在上层Component中提供对应的providers`)
-	}
+export function useInjector<C>(input: ProviderHook<C> | symbol, options?: ServiceOptions): C | null {
+  // 始终在固定位置读取 Context，不再根据模块级活动状态条件调用 Hook。
+  const injector = useContext(SERVICE_CONTEXT);
+  const token = typeof input === 'symbol' ? input : getProviderToken(input);
+  const provider = injector ? findProviderByInjector(injector, token, options?.skipOne === true) : null;
+
+  if (provider) return provider.value as C;
+  if (options?.optional) return null;
+
+  if (!injector) {
+    throw new Error('未找到注入器，请使用createComponent创建组件并通过providers参数提供对应依赖');
+  }
+
+  const providerName = typeof input === 'function' ? input.name : token.description;
+  throw new Error(
+    `未找到${providerName || token.description || '指定 token'}的依赖值。` +
+    '同一 createComponent 中，Provider Hook 只能注入排列在它前面的 Hook。'
+  );
 }
 
-function findDepsByInjector(node: ComponentInjector, token: symbol, options?: ServiceOptions): any {
-	const deps = node.providers.get(token)?.value;
-	if (deps && !options?.skipOne) return deps;
-	if (node.parent) return findDepsByInjector(node.parent, token);
-	if (!node.parent) return null;
+function findProviderByInjector(
+  node: ComponentInjector,
+  token: symbol,
+  skipCurrent: boolean
+): ComponentProvider<unknown> | null {
+  if (!skipCurrent) {
+    const provider = node.providers.get(token);
+    if (provider) return provider;
+  }
+
+  return node.parent ? findProviderByInjector(node.parent, token, false) : null;
 }

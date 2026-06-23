@@ -312,6 +312,7 @@ const UserLine = () => {
 - `useSignal` 返回的是可调用函数，而不是普通状态值，读取时需要使用 `count()` 这类方式
 - `render` 建议用于真正依赖 signal 的视图片区块，这样才能体现其依赖追踪价值
 - `createComponent` 适合组织依赖型 Hook；如果只是普通组件状态管理，未必需要它
+- `createComponent` 中的 Provider Hook 按数组顺序建立依赖作用域；后面的 Hook 可以注入前面的 Hook，反向依赖或循环依赖会直接报错
 - `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
 - 项目依赖 `react` 和 `rxjs`，使用前请确保版本兼容
 - 如果你只需要非常简单的全局 state，可能不必引入完整的 DI 组织方式
