@@ -1,6 +1,7 @@
 import './App.css';
 import CounterBoundary from './component/demo-a';
 import CircularDependencyDemo from './component/circular-demo';
+import WatcherDemo from './component/watcher-demo';
 
 const App = () => {
   return (
@@ -30,6 +31,7 @@ const App = () => {
       </section>
 
       <CircularDependencyDemo />
+      <WatcherDemo />
 
       <footer className="page-note">
         尝试只操作一侧：同侧两个 Consumer 和 Derived Provider 会同步更新，另一侧保持不变。

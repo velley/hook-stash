@@ -1,4 +1,4 @@
-import React, { memo, ReactNode, useEffect, useRef, useState } from "react";
+import React, { memo, ReactNode, useEffect, useState } from "react";
 import { Signal } from "../../../domain/signal";
 import { useSymbol } from "../../common/useSymbol";
 import { __createRenderWatcher } from "./watcher";
@@ -18,14 +18,15 @@ export const Render = memo(
       setTrigger(v => v + 1)	      
     }
     
-    const watcherRef = __createRenderWatcher(id, handler)
+    const watcher = __createRenderWatcher(id, handler)
+    const content = watcher.collect(() => children(id));
   
-    useEffect(() => {	      
-      watcherRef.load();
-      return () => watcherRef.unload()
-    })
+    useEffect(() => {
+      watcher.load();
+      return () => watcher.unload()
+    }, [watcher])
     
-    return children(id)  
+    return content
   }
 )
 

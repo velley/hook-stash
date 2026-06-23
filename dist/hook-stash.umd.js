@@ -188,104 +188,51 @@
       return node.parent ? findProviderByInjector(node.parent, token, false) : null;
   }
 
-  function __createEffectWatcher(id, callback, listener) {
-      const exit = EffectWatcher.EFFECT_WATCHER.find(watcher => watcher.id === id);
-      if (exit)
-          return exit;
-      const watcher = new EffectWatcher({ id, callback, listener });
-      return watcher;
+  const COLLECTOR_STACK = [];
+  /**
+   * Dependency collection is active only while the callback runs synchronously.
+   * `finally` prevents thrown or interrupted renders from leaking active state.
+   */
+  function withSignalCollector(collector, callback) {
+      COLLECTOR_STACK.push(collector);
+      try {
+          return callback();
+      }
+      finally {
+          const index = COLLECTOR_STACK.lastIndexOf(collector);
+          if (index >= 0)
+              COLLECTOR_STACK.splice(index, 1);
+      }
   }
-  function __findEffectWatcher(id) {
+  /**
+   * Preserve the old behavior: an unscoped read is registered with the nearest
+   * active effect collector and the nearest active render collector.
+   */
+  function trackSignal(signal, id) {
       if (id) {
-          return EffectWatcher.EFFECT_WATCHER.find(watcher => watcher.id === id);
-      }
-      else {
-          return EffectWatcher.ACTIVE_WATCHER;
-      }
-  }
-  class EffectWatcher {
-      constructor({ id, callback, listener }) {
-          this.signalArray = [];
-          this.id = id;
-          this.callback = callback;
-          EffectWatcher.EFFECT_WATCHER.push(this);
-          EffectWatcher.ACTIVE_WATCHER = this;
-          const result = callback(id); //watcher实例创建完毕后默认执行回调函数，用于触发函数中的signal getter以便进行依赖注册
-          EffectWatcher.ACTIVE_WATCHER = null; // 执行完毕后需要将activeWatcher置空
-          if (listener) {
-              this.__listener = listener;
-              this.__listener.next(result);
+          for (let index = COLLECTOR_STACK.length - 1; index >= 0; index -= 1) {
+              const collector = COLLECTOR_STACK[index];
+              if (collector.id === id)
+                  collector.registerSignal(signal);
           }
+          return;
       }
-      registerSignal(signal) {
-          if (this.signalArray.includes(signal))
+      let effectTracked = false;
+      let renderTracked = false;
+      for (let index = COLLECTOR_STACK.length - 1; index >= 0; index -= 1) {
+          const collector = COLLECTOR_STACK[index];
+          if (collector.kind === 'effect' && !effectTracked) {
+              collector.registerSignal(signal);
+              effectTracked = true;
+          }
+          if (collector.kind === 'render' && !renderTracked) {
+              collector.registerSignal(signal);
+              renderTracked = true;
+          }
+          if (effectTracked && renderTracked)
               return;
-          this.signalArray.push(signal);
-      }
-      load() {
-          const observables = this.signalArray.map(signal => signal.observable);
-          this.__subscription = rxjs.combineLatest(observables).pipe(rxjs.skip(1)).subscribe(() => {
-              const res = this.callback(this.id);
-              if (this.__listener)
-                  this.__listener.next(res);
-          });
-      }
-      unload() {
-          const index = EffectWatcher.EFFECT_WATCHER.findIndex(watcher => watcher.id === this.id);
-          if (index > -1)
-              EffectWatcher.EFFECT_WATCHER.splice(index, 1);
-          this.__subscription.unsubscribe();
       }
   }
-  EffectWatcher.EFFECT_WATCHER = [];
-  EffectWatcher.ACTIVE_WATCHER = null;
-
-  function __createRenderWatcher(id, callback) {
-      const exit = RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-      if (exit) {
-          RenderWatcher.ACTIVE_WATCHER = exit;
-          return exit;
-      }
-      const watcher = new RenderWatcher({ id, callback });
-      return watcher;
-  }
-  function __findRenderWatcher(id) {
-      if (id)
-          return RenderWatcher.RENDER_WATCHER.find(watcher => watcher.id === id);
-      const watcher = RenderWatcher.ACTIVE_WATCHER || RenderWatcher.RENDER_WATCHER[RenderWatcher.RENDER_WATCHER.length - 1];
-      return watcher;
-  }
-  class RenderWatcher {
-      constructor({ id, callback }) {
-          this.signalArray = [];
-          this.id = id;
-          this.callback = callback;
-          RenderWatcher.RENDER_WATCHER.push(this);
-          RenderWatcher.ACTIVE_WATCHER = this;
-          this.context = React.createContext(this);
-      }
-      registerSignal(signal) {
-          if (this.signalArray.includes(signal))
-              return;
-          this.signalArray.push(signal);
-      }
-      load() {
-          const observables = this.signalArray.map(signal => signal.observable);
-          this.__subscription = rxjs.combineLatest(observables).pipe(rxjs.skip(1)).subscribe(() => {
-              this.callback();
-          });
-          //订阅后需要立即将当前watcher移除
-          RenderWatcher.ACTIVE_WATCHER = null;
-          const index = RenderWatcher.RENDER_WATCHER.findIndex(watcher => watcher.id === this.id);
-          if (index > -1)
-              RenderWatcher.RENDER_WATCHER.splice(index, 1);
-      }
-      unload() {
-          this.__subscription.unsubscribe();
-      }
-  }
-  RenderWatcher.RENDER_WATCHER = [];
-  RenderWatcher.ACTIVE_WATCHER = null;
 
   /**
    * @function 创建一个可观察值
@@ -312,13 +259,7 @@
       const getValue = React.useRef(getValueFunc);
       const setValue = React.useRef(setValueFunc);
       function getValueFunc(symbol) {
-          //获取effectWatcher，将当前的signal注册到watcher中
-          const effectWatcher = __findEffectWatcher(symbol);
-          effectWatcher === null || effectWatcher === void 0 ? void 0 : effectWatcher.registerSignal(getValue.current);
-          //获取renderWatcher，将当前的signal注册到watcher中
-          const renderWathcer = __findRenderWatcher(symbol);
-          if (renderWathcer)
-              renderWathcer.registerSignal(getValue.current);
+          trackSignal(getValue.current, symbol);
           return subject.current.getValue();
       }
       getValueFunc.observable = subject.current.asObservable();
@@ -356,6 +297,50 @@
       return [getValue.current, setValue.current];
   }
 
+  function __createRenderWatcher(id, callback) {
+      return new RenderWatcher({ id, callback });
+  }
+  class RenderWatcher {
+      constructor({ id, callback }) {
+          this.kind = 'render';
+          this.signals = new Set();
+          this.collectingSignals = null;
+          this.id = id;
+          this.callback = callback;
+      }
+      collect(callback) {
+          const nextSignals = new Set();
+          this.collectingSignals = nextSignals;
+          try {
+              const result = withSignalCollector(this, callback);
+              this.signals = nextSignals;
+              return result;
+          }
+          finally {
+              this.collectingSignals = null;
+          }
+      }
+      registerSignal(signal) {
+          var _a;
+          (_a = this.collectingSignals) === null || _a === void 0 ? void 0 : _a.add(signal);
+      }
+      load() {
+          var _a;
+          (_a = this.subscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+          this.subscription = undefined;
+          const observables = Array.from(this.signals, signal => signal.observable);
+          if (!observables.length)
+              return;
+          this.subscription = rxjs.combineLatest(observables).pipe(rxjs.skip(1)).subscribe(this.callback);
+      }
+      unload() {
+          var _a;
+          (_a = this.subscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+          this.subscription = undefined;
+          this.signals.clear();
+      }
+  }
+
   const Render = React.memo((props) => {
       const { children } = props;
       const id = useSymbol();
@@ -363,12 +348,13 @@
       const handler = () => {
           setTrigger(v => v + 1);
       };
-      const watcherRef = __createRenderWatcher(id, handler);
+      const watcher = __createRenderWatcher(id, handler);
+      const content = watcher.collect(() => children(id));
       React.useEffect(() => {
-          watcherRef.load();
-          return () => watcherRef.unload();
-      });
-      return children(id);
+          watcher.load();
+          return () => watcher.unload();
+      }, [watcher]);
+      return content;
   });
   function render(nodeFn) {
       return React__default["default"].createElement(Render, null, nodeFn);
@@ -403,17 +389,73 @@
       return value === null || value === undefined;
   }
 
+  function __createEffectWatcher(id, callback, listener) {
+      return new EffectWatcher({ id, callback, listener });
+  }
+  class EffectWatcher {
+      constructor({ id, callback, listener }) {
+          var _a;
+          this.kind = 'effect';
+          this.signals = new Set();
+          this.collectingSignals = null;
+          this.loaded = false;
+          this.id = id;
+          this.callback = callback;
+          this.listener = listener;
+          const result = this.collectCallback();
+          (_a = this.listener) === null || _a === void 0 ? void 0 : _a.next(result);
+      }
+      registerSignal(signal) {
+          var _a;
+          (_a = this.collectingSignals) === null || _a === void 0 ? void 0 : _a.add(signal);
+      }
+      load() {
+          this.loaded = true;
+          this.bindSignals();
+      }
+      unload() {
+          var _a;
+          this.loaded = false;
+          (_a = this.subscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+          this.subscription = undefined;
+          this.signals.clear();
+      }
+      collectCallback() {
+          const nextSignals = new Set();
+          this.collectingSignals = nextSignals;
+          try {
+              const result = withSignalCollector(this, () => this.callback(this.id));
+              this.signals = nextSignals;
+              return result;
+          }
+          finally {
+              this.collectingSignals = null;
+          }
+      }
+      bindSignals() {
+          var _a;
+          (_a = this.subscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+          this.subscription = undefined;
+          const observables = Array.from(this.signals, signal => signal.observable);
+          if (!observables.length || !this.loaded)
+              return;
+          this.subscription = rxjs.combineLatest(observables).pipe(rxjs.skip(1)).subscribe(() => {
+              var _a, _b;
+              // 回调执行期间先解除旧订阅，避免回调中的同步写入造成重入。
+              (_a = this.subscription) === null || _a === void 0 ? void 0 : _a.unsubscribe();
+              this.subscription = undefined;
+              const result = this.collectCallback();
+              (_b = this.listener) === null || _b === void 0 ? void 0 : _b.next(result);
+              this.bindSignals();
+          });
+      }
+  }
+
   function useComputed(inputFn) {
       const subject = React.useRef(new rxjs.BehaviorSubject(null));
       const getValue = React.useRef(getValueFunc);
       function getValueFunc(symbol) {
-          //获取effectWatcher，将当前的signal注册到watcher中
-          const watcher = __findEffectWatcher(symbol);
-          watcher === null || watcher === void 0 ? void 0 : watcher.registerSignal(getValue.current);
-          //获取renderWatcher，将当前的signal注册到watcher中
-          const renderWathcer = __findRenderWatcher(symbol);
-          if (renderWathcer)
-              renderWathcer.registerSignal(getValue.current);
+          trackSignal(getValue.current, symbol);
           return subject.current.getValue();
       }
       getValueFunc.observable = subject.current.asObservable();

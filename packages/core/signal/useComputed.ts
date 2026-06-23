@@ -1,25 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { BehaviorSubject } from "rxjs";
 import { EffectReturn, Signal } from "../../../domain/signal";
-import { __createEffectWatcher, __findEffectWatcher, EffectWatcher } from "./watcher";
+import { __createEffectWatcher, EffectWatcher } from "./watcher";
 import { useSymbol } from "../../common/useSymbol";
-import { useDestroy } from "../../common/useDestroy";
-import { __findRenderWatcher } from "../render/watcher";
-import { useReady } from "../../common/useReady";
+import { trackSignal } from "./collector";
 
 export function useComputed<T>(inputFn: (symbol?: symbol) => T): Signal<T | null> {
   const subject   = useRef( new BehaviorSubject<T | null>(null));  
 	const getValue  = useRef(getValueFunc);  
 	
   function getValueFunc(symbol?: symbol) {
-    //获取effectWatcher，将当前的signal注册到watcher中
-    const watcher = __findEffectWatcher(symbol);
-    watcher?.registerSignal(getValue.current);     
-
-    //获取renderWatcher，将当前的signal注册到watcher中
-    const renderWathcer = __findRenderWatcher(symbol);
-    if(renderWathcer) renderWathcer.registerSignal(getValue.current);
-     
+    trackSignal(getValue.current, symbol);
     return subject.current.getValue();  
   }
   getValueFunc.observable = subject.current.asObservable();

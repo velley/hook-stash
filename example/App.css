@@ -442,6 +442,98 @@ h1 {
   color: #dbe8ff;
 }
 
+.watcher-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+  gap: 30px;
+  margin-top: 20px;
+  padding: 30px;
+  border: 1px solid rgba(241, 186, 102, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(241, 186, 102, 0.07), transparent 48%),
+    rgba(19, 22, 33, 0.82);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.22);
+}
+
+.watcher-copy h2 {
+  margin: 7px 0 10px;
+  color: #f1f2f7;
+  font-size: 26px;
+  letter-spacing: -0.035em;
+}
+
+.watcher-copy p {
+  margin: 0;
+  color: #8e94a8;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.watcher-console {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(6, 8, 13, 0.56);
+}
+
+.watcher-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.watcher-values > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.watcher-values span,
+.watcher-source {
+  color: #6f768a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.watcher-values strong {
+  color: #f1cf96;
+  font-size: 30px;
+}
+
+.watcher-source {
+  margin: 12px 0;
+  color: #b69865;
+  text-align: center;
+}
+
+.watcher-actions {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  gap: 8px;
+}
+
+.watcher-actions button {
+  min-height: 40px;
+  border: 1px solid rgba(241, 186, 102, 0.16);
+  border-radius: 10px;
+  background: rgba(241, 186, 102, 0.07);
+  color: #c3a675;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.watcher-actions button:hover {
+  border-color: rgba(241, 186, 102, 0.42);
+  color: #f1cf96;
+}
+
 @media (max-width: 780px) {
   .app-shell {
     width: min(100% - 28px, 560px);
@@ -453,6 +545,10 @@ h1 {
   }
 
   .cycle-card {
+    grid-template-columns: 1fr;
+  }
+
+  .watcher-card {
     grid-template-columns: 1fr;
   }
 
@@ -476,6 +572,14 @@ h1 {
 
   .cycle-card {
     padding: 20px;
+  }
+
+  .watcher-card {
+    padding: 20px;
+  }
+
+  .watcher-actions {
+    grid-template-columns: 1fr;
   }
 
   .console-row {
