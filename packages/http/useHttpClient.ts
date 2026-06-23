@@ -4,6 +4,15 @@ import { useReady } from "../common/useReady";
 import { useSignal } from "../core/signal/useSignal";
 import { useInjector } from "../core/di/useInjector";
 
+const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
+  auto: false,
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  reqData: {}
+};
+
 /**
  * @description ajax请求，默认通过fetch发送请求，可通过di依赖注入方式提供自定义请求方法
  * @param url 请求地址，必传
@@ -13,18 +22,8 @@ import { useInjector } from "../core/di/useInjector";
 export function useHttpClient<T>(
   url: string, localOptions: Partial<RequestOptions> = {}
 ) {
-
-  const DEFAULT_HTTP_OPTIONS: Partial<RequestOptions> = {
-    auto: false,
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    reqData: {}
-  }
-
   /** 设置请求配置以及上层组件注入进来的配置项 */
-  const options       = Object.assign(Object.create(DEFAULT_HTTP_OPTIONS), localOptions, { url });
+  const options       = { ...DEFAULT_HTTP_OPTIONS, ...localOptions, url } as RequestOptions;
   const intercept     = useInjector<HttpIntercept>(HTTP_INTERCEPT, {optional: true});
   const customeReq    = useInjector<{req: RequesterFunc}>(CUSTOME_REQUEST, {optional: true});
 
@@ -36,6 +35,7 @@ export function useHttpClient<T>(
   const request =  useRef(
     (query: any = {}) => {
       setState('pending');
+      setErr(null);
       return new Promise<RequestOptions>(resolve => {
         if(intercept?.requestIntercept) {        
           intercept.requestIntercept({ ...options, reqData: query }).then(finalOptions => resolve(finalOptions))
@@ -44,19 +44,36 @@ export function useHttpClient<T>(
         } 
       })
       .then(options2 => {
-        let reqData = options2.reqData;
+        const method = normalizeMethod(options2.method);
+        const normalizedOptions = { ...options2, method };
+        const reqData = normalizedOptions.reqData;
         if(customeReq) {
-          return customeReq.req(options2.url, {...options2, reqData})
+          return customeReq.req(normalizedOptions.url, normalizedOptions)
         } else {
-          if(['GET', 'HEAD'].includes(options2.method) || !options2.method) {
-            const searchKeys = `?${objectToUrlSearch(reqData)}`;
-            options2.url += searchKeys;  
-            delete options2.body;
+          const {
+            url: requestUrl,
+            reqData: _reqData,
+            auto: _auto,
+            defaultValue: _defaultValue,
+            ...fetchOptions
+          } = normalizedOptions;
+          let finalUrl = requestUrl;
+
+          if(['GET', 'HEAD'].includes(method)) {
+            const search = objectToUrlSearch(reqData);
+            if(search) {
+              finalUrl += `${finalUrl.includes('?') ? '&' : '?'}${search}`;
+            }
+            delete fetchOptions.body;
           } else {
-            options2.body = reqData instanceof FormData ? reqData : JSON.stringify(reqData);
-            delete options2.reqData;
+            if(reqData instanceof FormData) {
+              fetchOptions.body = reqData;
+              fetchOptions.headers = withoutJsonContentType(fetchOptions.headers);
+            } else {
+              fetchOptions.body = JSON.stringify(reqData);
+            }
           }
-          return fetch(options2.url, options2)
+          return fetch(finalUrl, fetchOptions)
         }
       })
       .then(response => {
@@ -65,7 +82,7 @@ export function useHttpClient<T>(
         if(customeReq) {
           return resIntercept ? resIntercept(res) : res;
         } else {
-          return res.json().then((re: any) => resIntercept ? resIntercept(re) : re)
+          return parseResponse(res).then((re: any) => resIntercept ? resIntercept(re) : re)
         }
       })
       .then(res => {
@@ -79,7 +96,7 @@ export function useHttpClient<T>(
         if(intercept?.errorIntercept) {
           intercept.errorIntercept(err);
         }
-        throw new Error(err);
+        throw err instanceof Error ? err : new Error(String(err));
       })
     }  
   )
@@ -93,9 +110,43 @@ export function useHttpClient<T>(
 
 function objectToUrlSearch(obj: object) {
   if(!obj) return '';
-  let str = '';
-  for(let key in obj) {
-    str += `${key}=${obj[key]}&`
+  return Object.keys(obj)
+    .filter(key => obj[key] !== undefined)
+    .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(obj[key] == null ? '' : String(obj[key]))}`)
+    .join('&');
+}
+
+function normalizeMethod(method?: RequestOptions['method']) {
+  return (method || 'GET').toUpperCase() as Uppercase<RequestOptions['method']>;
+}
+
+function parseResponse(response: Response): Promise<any> {
+  if(response.status === 204 || response.status === 205) {
+    return Promise.resolve(undefined);
   }
-  return str
+
+  return response.text().then(text => {
+    const body = text.trim();
+    return body ? JSON.parse(body) : undefined;
+  });
+}
+
+function withoutJsonContentType(headers: any) {
+  if(!headers) return headers;
+
+  if(headers instanceof Headers) {
+    const finalHeaders = new Headers(headers);
+    if(finalHeaders.get('Content-Type')?.toLowerCase() === 'application/json') {
+      finalHeaders.delete('Content-Type');
+    }
+    return finalHeaders;
+  }
+
+  const finalHeaders = { ...headers };
+  const contentTypeKey = Object.keys(finalHeaders)
+    .find(key => key.toLowerCase() === 'content-type');
+  if(contentTypeKey && String(finalHeaders[contentTypeKey]).toLowerCase() === 'application/json') {
+    delete finalHeaders[contentTypeKey];
+  }
+  return finalHeaders;
 }

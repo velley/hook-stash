@@ -15,9 +15,12 @@ export interface RequesterFunc {
 }
  
 /** 请求配置项 */
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'HEAD' | 'DELETE'
+  | 'get' | 'post' | 'put' | 'head' | 'delete';
+
 export interface RequestOptions {
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'HEAD' | 'DELETE';
+  method: HttpMethod;
   reqData: any;
   auto?: boolean;  
   headers: any;
