@@ -7,358 +7,442 @@
 [![react](https://img.shields.io/badge/react-18.x-61dafb.svg)](https://react.dev/)
 [![rxjs](https://img.shields.io/badge/rxjs-7.x-d91404.svg)](https://rxjs.dev/)
 
-> A Hooks toolkit for React focused on dependency injection, shared state, and fine-grained rendering.
+> 面向复杂 React 业务模块的 Hook 依赖注入与作用域共享工具。
 
-`hook-stash` 是一个围绕 **React 依赖注入（DI）**、**状态共享** 与 **精细渲染控制** 构建的 Hooks 工具库。它的核心目标，是把常见业务逻辑以可复用、可组合、可注入的方式组织起来，形成更清晰的组件与逻辑边界。
+`hook-stash` 允许你把一个普通 Hook 的返回值作为 Provider，在组件树的指定边界内共享。
 
-它不是一个单纯的状态库，而是一个更偏“**Hook 级架构层**”的方案：
+它的重点不是替代 React 的 `useState`、`useEffect` 或 Context，而是减少围绕业务 Hook 手工创建 Context、Provider 和消费 Hook 的重复工作，让认证、用户资料、编辑器会话等业务能力能够按作用域组合。
 
-- 用 DI 组织 Hook 间的依赖关系
-- 用可共享的响应式状态连接业务模块
-- 用 `render` 驱动按依赖追踪的局部渲染
-- 用统一的方式封装请求、分页和生命周期逻辑
+```tsx
+const Page = createComponent(PageView, [useAuth, useProfile]);
+
+function ProfileName() {
+  const profile = useInjector(useProfile);
+  return <span>{profile.name}</span>;
+}
+```
 
 ## 目录
 
-- [项目定位](#项目定位)
-- [为什么选择 hook-stash](#为什么选择-hook-stash)
-- [核心能力](#核心能力)
-- [与 Zustand / MobX / Redux 的关系](#与-zustand--mobx--redux-的关系)
+- [适合解决什么问题](#适合解决什么问题)
+- [是否应该使用](#是否应该使用)
 - [安装](#安装)
 - [快速开始](#快速开始)
-- [设计原理](#设计原理)
-- [render 的作用](#render-的作用)
-- [注意事项](#注意事项)
+- [Provider 依赖与作用域](#provider-依赖与作用域)
+- [循环依赖与 lazy 注入](#循环依赖与-lazy-注入)
+- [Signal 与局部渲染](#signal-与局部渲染)
+- [HTTP 请求 Hook](#http-请求-hook)
+- [与其他方案的关系](#与其他方案的关系)
+- [核心约束](#核心约束)
 - [API 概览](#api-概览)
+- [设计概要](#设计概要)
 - [项目结构](#项目结构)
-- [依赖](#依赖)
-- [许可证](#许可证)
 
-## 项目定位
+## 适合解决什么问题
 
-在 React 开发中，很多业务逻辑天然是“跨组件、跨层级、可复用”的：
+React 原生能力足以实现依赖注入和状态共享，但当业务 Hook 数量增加时，通常需要反复编写 Context、Provider、类型和消费函数。
 
-- 页面中的多个模块需要共享同一份状态
-- 某些 Hook 需要依赖其他 Hook 的输出
-- 状态更新后，希望只重渲染真正依赖它的视图片段
-- 请求、拦截器、分页、生命周期等能力需要统一编排
-- 你希望逻辑拆分更细，但又不想引入过重的全局状态管理范式
+`hook-stash` 主要处理以下场景：
 
-`hook-stash` 的核心就是围绕这些问题，提供一套更贴近 React Hooks 思维的组织方式。
+- 多个深层组件需要共享同一个业务 Hook 实例
+- Provider Hook 需要使用其他 Provider Hook 提供的能力
+- 同一种业务模块需要在不同组件子树中创建相互隔离的实例
+- 希望把状态、方法和副作用封装在 Hook 内，而不是拆成全局 store
+- 部分高频状态需要通过 Signal 做局部渲染或派生计算
 
-## 为什么选择 hook-stash
+这个库最重要的能力是 **Hook DI 与作用域管理**。Signal、HTTP 请求和分页 Hook 是可以独立使用的辅助能力，并不要求先注册为 Provider。
 
-如果你已经在使用 React Hooks，`hook-stash` 可以帮助你进一步把业务逻辑拆成“可注入的能力单元”：
+## 是否应该使用
 
-- **DI 化组织逻辑**：通过 `createComponent` 和 `useInjector` 建立 Hook 依赖注入关系
-- **状态共享更自然**：通过 `useSignal` 让状态成为可共享、可观察的数据源
-- **渲染粒度更细**：通过 `render` 追踪视图中实际读取过的 signal，并在变化时触发局部重渲染
-- **逻辑和状态一起封装**：把数据、方法、副作用放在同一个 Hook 里复用
-- **更适合 Hooks 体系**：不强迫你切换到 reducer/action/store 的写法
+`hook-stash` 不是常规 React 项目的必选依赖。
 
-## 核心能力
+适合考虑引入：
 
-### 1. 依赖注入（DI）
+- 项目中已经存在大量业务型 Hook，并且经常需要跨层级共享
+- 手写 Context Provider 的数量开始影响维护效率
+- 页面、弹窗或工作区需要同一业务模块的多个隔离实例
+- 业务能力之间存在明确的依赖关系，希望在组件边界统一装配
 
-`createComponent` + `useInjector` 是 `hook-stash` 最核心的能力。
+通常不需要引入：
 
-你可以把某个 Hook 的返回值视为一个 provider，再由子组件或下游 Hook 注入使用。
+- 只有少量组件状态或一两个简单 Context
+- 主要需求是服务端数据缓存、失效和重试，此时更适合 TanStack Query 等工具
+- 需要严格的全局状态流、时间旅行或成熟的调试生态，此时 Redux 等方案更完整
+- 团队更重视 React 原生模型的透明度，不希望增加额外抽象
 
-适合场景：
-
-- 将复杂业务拆成多个独立 Hook
-- 在组件层统一提供依赖
-- 在子组件或下游 Hook 中按需获取逻辑能力
-- 将状态、方法、派生值封装在同一个逻辑模块中
-
-### 2. 状态共享
-
-`useSignal` 提供了一种基于 `BehaviorSubject` 的可观察状态方案。
-
-适合场景：
-
-- 需要共享但不一定触发整棵组件树重渲染的状态
-- 需要在 Hook 中使用响应式数据流
-- 希望比 `useState` 更灵活地控制状态读取和更新
-
-### 3. 精细渲染控制
-
-`render` 是 `hook-stash` 和普通“共享状态 Hook”方案很不一样的一点。
-
-它会在渲染过程中追踪当前视图真正读取了哪些 signal，并在这些 signal 变化时只重新执行这段渲染逻辑。
-
-这意味着：
-
-- 你可以把组件逻辑和渲染逻辑拆开
-- signal 更新后，不一定需要整个组件函数重新执行
-- 更适合复杂页面中的局部渲染优化
-
-### 4. 面向业务的逻辑编排
-
-`hook-stash` 不只是“状态管理”，它更适合做业务逻辑编排：
-
-- Hook 之间可以互相依赖
-- 状态与方法可以一起注入
-- 页面级逻辑可以拆分成多个可复用模块
-- 请求、分页、生命周期可统一纳入同一套组织方式
-
-## 与 Zustand / MobX / Redux 的关系
-
-`hook-stash` 可以在**很多业务场景中平替** Zustand / MobX / Redux，尤其适合：
-
-- 中小型 React 项目
-- 更偏 Hook 组合式的状态组织方式
-- 希望把“状态 + 逻辑 + 副作用”一起封装在 Hook 里的场景
-
-它和传统状态库的区别，可以简单理解为：
-
-| 维度 | hook-stash | Zustand | MobX | Redux |
-| --- | --- | --- | --- | --- |
-| 核心定位 | Hook 级 DI + 状态共享 + 渲染编排 | 轻量全局 store | 响应式可观察状态 | 单向数据流 + action/reducer |
-| 组织方式 | 以 Hook 为中心 | 以 store 为中心 | 以 observable 为中心 | 以 store/action/reducer 为中心 |
-| 状态与逻辑关系 | 状态、方法、副作用可一起封装 | 主要围绕 store | 主要围绕响应式对象 | 主要围绕状态流转 |
-| 渲染控制 | 可结合 `render` 做依赖追踪式局部渲染 | 依赖 selector | 自动追踪较强 | 依赖 selector / connect |
-| 适合场景 | Hook 化业务逻辑封装、注入、共享 | 轻量全局状态管理 | 复杂响应式状态 | 大型项目、严格状态流转 |
-| 学习成本 | 低到中 | 低 | 中 | 中到高 |
-| 风格特点 | 更贴近 React Hooks 与函数式组件 | 简洁直接 | 自动追踪较强 | 约束更强、规范清晰 |
-
-### 简单结论
-
-- 如果你想要**一个纯状态管理库**，Zustand / MobX / Redux 仍然更直接
-- 如果你想把**状态管理和业务逻辑封装成 Hook 复用**，`hook-stash` 会更顺手
-- 如果你还希望在共享状态之外，获得 **DI + 局部 render 追踪** 的组织方式，`hook-stash` 会更有优势
-
-> 说明：这里的“平替”指的是在很多业务场景下可替代使用，而不是在所有能力边界上完全等价。
+建议先从一个具有明确边界的业务模块开始使用，而不是一次性替换整个项目的状态方案。
 
 ## 安装
 
 ```bash
-npm install hook-stash react rxjs
+npm install hook-stash rxjs
 ```
 
-或：
-
-```bash
-yarn add hook-stash react rxjs
-```
+项目需要使用 React 18 和 RxJS 7。
 
 ## 快速开始
 
-### 导入
+下面的例子只使用 React 原生 `useState`。这正是 `hook-stash` 的核心用途：共享一个普通 Hook 的返回值，而不是强制切换状态模型。
 
-```ts
-import {
-  createComponent,
-  render,
-  useInjector,
-  useSignal
-} from 'hook-stash';
-```
+### 1. 定义 Provider Hook
 
-### 定义一个可注入、可共享的业务 Hook
+```tsx
+import { useState } from 'react';
 
-```ts
-import { useSignal } from 'hook-stash';
-
-export function useAppData() {
-  const [name, setName] = useSignal('demo');
-  const [age, setAge] = useSignal(18);
-  const [city, setCity] = useSignal('Shanghai');
+function useCounter() {
+  const [count, setCount] = useState(0);
 
   return {
-    name,
-    age,
-    city,
-    changeName: (nextName: string) => setName(nextName),
-    increaseAge: () => setAge((value) => value + 1),
-    changeCity: (nextCity: string) => setCity(nextCity),
+    count,
+    increment: () => setCount(value => value + 1),
+    reset: () => setCount(0),
   };
 }
 ```
 
-### 在组件中通过 DI 注入业务能力
+### 2. 在子组件中注入
 
 ```tsx
-import React from 'react';
-import { createComponent, render, useInjector } from 'hook-stash';
-import { useAppData } from './useAppData';
+import { useInjector } from 'hook-stash';
 
-const ProfileName = () => {
-  const { name } = useInjector(useAppData);
-  return render(() => <div>name: {name()}</div>);
-};
+function CounterValue() {
+  const { count } = useInjector(useCounter);
+  return <strong>{count}</strong>;
+}
 
-const ProfileAge = () => {
-  const { age } = useInjector(useAppData);
-  return render(() => <div>age: {age()}</div>);
-};
-
-const ProfileEditor = () => {
-  const { changeName, increaseAge } = useInjector(useAppData);
+function CounterActions() {
+  const { increment, reset } = useInjector(useCounter);
 
   return (
     <div>
-      <button onClick={() => changeName('alice')}>change name</button>
-      <button onClick={increaseAge}>age + 1</button>
+      <button onClick={increment}>+1</button>
+      <button onClick={reset}>Reset</button>
     </div>
   );
-};
-
-const ProfilePage = () => {
-  return (
-    <div>
-      <ProfileName />
-      <ProfileAge />
-      <ProfileEditor />
-    </div>
-  );
-};
-
-export default createComponent(ProfilePage, [useAppData]);
+}
 ```
 
-上面这个例子体现了三个核心点：
-
-- `useAppData` 作为 provider 被统一注入
-- 多个子组件共享同一份状态来源
-- 每个子组件通过 `render` 只订阅自己实际读取到的 signal
-
-## 设计原理
-
-`hook-stash` 的核心可以理解成三层协作：
-
-### 1. DI 层：��织逻辑依赖
-
-通过 `createComponent`，你可以在组件边界上声明一组 provider hooks。
-这些 provider 的返回值会被挂到当前组件上下文中，后续子组件或下游 Hook 可以通过 `useInjector` 获取。
-
-这使得：
-
-- 业务能力不需要层层 props 传递
-- Hook 可以像“服务”一样被组织和复用
-- 一个页面可以拆成多个围绕业务职责的逻辑模块
-
-### 2. Signal 层：承载共享状态
-
-`useSignal` 内部基于 `BehaviorSubject` 实现，返回的是“读取函数 + 更新函数”组合。
-
-也就是说，它不是简单返回一个值，而是返回一个具备响应式能力的状态访问器。
-
-这使得 signal：
-
-- 可以被多个组件共享
-- 可以在不同渲染片段中被独立追踪
-- 可以作为 DI 返回值的一部分向外暴露
-
-### 3. Render 层：追踪视图依赖
-
-`render(() => ...)` 在执行时，会记录当前读取到了哪些 signal。
-这些 signal 会被注册到 render watcher 中；当 signal 发生变化时，watcher 会只触发这段 render 逻辑重新执行。
-
-这就是为什么 `hook-stash` 的重点不是“共享状态”本身，而是：
-
-- **共享状态 + DI + 局部渲染追踪** 的组合能力
-
-## render 的作用
-
-如果只使用 `useSignal`，你拿到的是一个可共享、可观察的 signal；但真正让它和视图建立“细粒度依赖关系”的，是 `render`。
-
-### 为什么不是直接在 JSX 里写 `name()`？
-
-可以直接写，但 `render(() => ...)` 的意义在于：
-
-- 它会在执行渲染函数时记录当前读取了哪些 signal
-- 当这些 signal 发生变化时，只重新执行这一段 render 回调
-- 这样可以把“组件执行”和“视图更新”拆开
-
-### 推荐写法
+### 3. 创建作用域边界
 
 ```tsx
-const UserCard = () => {
-  const { name, age } = useInjector(useAppData);
+import { createComponent } from 'hook-stash';
+
+function CounterPanel() {
+  return (
+    <section>
+      <CounterValue />
+      <CounterActions />
+    </section>
+  );
+}
+
+export default createComponent(CounterPanel, [useCounter]);
+```
+
+`CounterValue` 和 `CounterActions` 得到的是同一个 `useCounter` 实例。每挂载一个 `CounterPanel`，都会创建一份独立状态。
+
+## Provider 依赖与作用域
+
+### Provider 之间的依赖
+
+Provider Hook 可以注入已经位于外层的 Provider：
+
+```tsx
+function useAuth() {
+  const [userId, setUserId] = useState<string | null>(null);
+  return { userId, setUserId };
+}
+
+function useProfile() {
+  const auth = useInjector(useAuth);
+
+  return {
+    userId: auth.userId,
+    canLoadProfile: auth.userId !== null,
+  };
+}
+
+const ProfilePage = createComponent(ProfileView, [useAuth, useProfile]);
+```
+
+Provider 按数组顺序由外向内嵌套。因此在立即注入模式下，后面的 Provider 可以依赖前面的 Provider：
+
+```text
+useAuth → useProfile → ProfileView
+```
+
+### 嵌套组件边界
+
+注入器会沿组件树向父级查找，因此子级 `createComponent` 可以同时访问自己的 Provider 和祖先边界中的 Provider：
+
+```tsx
+const App = createComponent(AppView, [useAuth]);
+const ProfileSection = createComponent(ProfileView, [useProfile]);
+```
+
+当 `ProfileSection` 渲染在 `App` 内部时，其后代可以注入 `useProfile`，也可以继续注入根边界的 `useAuth`。
+
+如果子级注册了相同的 Provider，则优先使用距离当前组件最近的实例，从而形成自然的作用域覆盖。
+
+## 循环依赖与 lazy 注入
+
+有些业务 Provider 只能在真正调用方法时闭环。例如：
+
+```text
+useSession → useApiService → useRequestHeaders → useSession
+```
+
+这类依赖不能在 Provider 渲染期间全部立即解析。可以使用 `{ lazy: true }` 获取一个延迟 getter：
+
+```tsx
+function useSession() {
+  const getApiService = useInjector(useApiService, { lazy: true });
+  const [token, setToken] = useState('token-alpha');
+
+  return {
+    token,
+    setToken,
+    refresh: () => getApiService().post('/session/refresh'),
+  };
+}
+
+function useApiService() {
+  const getRequestHeaders = useInjector(useRequestHeaders, { lazy: true });
+
+  return {
+    post: (url: string) => fetch(url, {
+      method: 'POST',
+      headers: getRequestHeaders().getHeaders(),
+    }),
+  };
+}
+
+function useRequestHeaders() {
+  const getSession = useInjector(useSession, { lazy: true });
+
+  return {
+    getHeaders: () => ({
+      Authorization: `Bearer ${getSession().token}`,
+    }),
+  };
+}
+
+const App = createComponent(AppView, [
+  useSession,
+  useApiService,
+  useRequestHeaders,
+]);
+```
+
+lazy getter 只能在所有 Provider 已提交之后读取，例如事件回调、异步方法或 `useEffect`。不要在 Provider 或组件渲染期间立即执行它：
+
+```tsx
+const getSession = useInjector(useSession, { lazy: true });
+
+// 正确：在调用期解析
+const handleClick = () => console.log(getSession().token);
+
+// 错误：Provider 可能尚未完成提交
+const token = getSession().token;
+```
+
+lazy 注入解决的是初始化时序问题，并不意味着所有循环依赖都是合理设计。如果两个模块始终互相了解大量实现细节，仍应考虑提取更小的公共能力。
+
+## Signal 与局部渲染
+
+Signal 是可选能力，不是使用 DI 的前置条件。普通 `useState`、`useReducer` 和其他 Hook 都可以作为 Provider 的内部实现。
+
+### useSignal
+
+`useSignal` 返回读取函数和更新函数：
+
+```tsx
+const [count, setCount] = useSignal(0);
+
+count();
+setCount(1);
+setCount(value => value + 1);
+```
+
+Signal 读取函数还提供：
+
+- `signal.useState()`：在组件中订阅并获取当前值
+- `signal.watchEffect(callback)`：在 effect 中监听变化
+- `signal.observable`：访问对应的 RxJS Observable
+
+### render
+
+`render(() => ...)` 会同步收集回调中读取的 Signal，并在依赖变化后只更新这一渲染片段：
+
+```tsx
+function CounterValue() {
+  const { count } = useInjector(useSignalCounter);
 
   return render(() => (
-    <div>
-      <span>{name()}</span>
-      <span>{age()}</span>
-    </div>
+    <strong>{count()}</strong>
   ));
-};
+}
 ```
 
-### `$` 的作用
-
-除了 `render`，库里还提供了 `$` 这个辅助方法，用来直接渲染一个 signal：
+动态分支会在每次回调执行后重新收集依赖：
 
 ```tsx
-import { $ } from 'hook-stash';
-
-const UserLine = () => {
-  const { name, age } = useInjector(useAppData);
-
-  return (
-    <div>
-      <span>{$(name)}</span>
-      <span>{$(age, (value) => `${value} years old`)}</span>
-    </div>
-  );
-};
+return render(() => (
+  <span>{usePrimary() ? primary() : secondary()}</span>
+));
 ```
 
-适合简单值渲染；而对于包含多个 signal 的视图片区块，`render(() => ...)` 更清晰。
+切换到 `secondary` 后，后续渲染将跟随新的依赖分支。
 
-## 注意事项
+对于简单的单 Signal 渲染，可以使用 `$`：
 
-- `useSignal` 返回的是可调用函数，而不是普通状态值，读取时需要使用 `count()` 这类方式
-- `render` 建议用于真正依赖 signal 的视图片区块，这样才能体现其依赖追踪价值
-- `createComponent` 适合组织依赖型 Hook；如果只是普通组件状态管理，未必需要它
+```tsx
+<span>{$(count)}</span>
+<span>{$(count, value => `count: ${value}`)}</span>
+```
+
+### useComputed 与 useWatchEffect
+
+```tsx
+const double = useComputed(() => count() * 2);
+
+useWatchEffect(() => {
+  console.log('count changed:', count());
+});
+```
+
+`useComputed` 会追踪计算回调读取的 Signal，并在动态依赖发生变化时重新绑定。
+
+对于普通表单和低频状态，优先使用 React 原生 state。只有在确实需要共享 Observable、派生计算或局部渲染时再使用 Signal。
+
+## HTTP 请求 Hook
+
+`useHttpClient` 是一个可以直接在组件或其他 Hook 中调用的请求 Hook，不需要先通过 `createComponent` 注册，也不需要使用 `useInjector` 获取。
+
+```tsx
+interface User {
+  name: string;
+}
+
+function UserPanel() {
+  const [user, requestUser, requestState, requestError] =
+    useHttpClient<User>('/api/user');
+
+  const data = user.useState();
+  const state = requestState.useState();
+  const error = requestError.useState();
+
+  return (
+    <section>
+      <button onClick={() => requestUser({ id: 1 })}>
+        Load user
+      </button>
+      <div>state: {state}</div>
+      {data && <div>{data.name}</div>}
+      {error && <div>{error.message}</div>}
+    </section>
+  );
+}
+```
+
+每次调用 `useHttpClient` 都拥有独立的响应数据、请求状态和错误状态。这些状态通常只服务于当前请求实例，不建议为了复用请求能力而将 `useHttpClient` 本身注册成 Provider；否则多个调用方共享同一组请求状态，容易出现响应覆盖、loading 状态互相干扰等问题。
+
+请求拦截器、自定义 requester 等基础设施可以按需通过 DI 提供，但一次请求产生的 `response / state / error` 应默认保留在调用它的组件或 Hook 内部。
+
+## 与其他方案的关系
+
+这些方案解决的问题并不完全相同：
+
+| 方案 | 主要用途 | 更适合的场景 |
+| --- | --- | --- |
+| React state / Context | React 原生局部状态与跨层共享 | 状态简单、依赖关系少、重视透明度 |
+| hook-stash | Hook DI、作用域共享、业务能力组合 | Provider 较多、需要多实例隔离或 Hook 间依赖 |
+| Zustand / Jotai | 轻量客户端 store | 需要直接、独立于组件树的共享状态 |
+| Redux | 可预测的全局状态流 | 大型团队、严格约束、调试与中间件需求 |
+| TanStack Query | 服务端状态管理 | 请求缓存、失效、重试和并发请求 |
+
+`hook-stash` 可以和这些工具同时使用。例如 Provider Hook 内部可以调用 TanStack Query，也可以注入一个 Zustand store。它不要求业务状态全部迁移到自己的 Signal 模型。
+
+## 核心约束
+
+- Provider 必须是合法的 React Hook，并遵守 Hooks Rules
 - Provider Hook 必须返回非 `null`、非数组的 object 对象
-- `createComponent` 中的立即注入按数组顺序建立作用域；反向或循环依赖可使用 `useInjector(provider, { lazy: true })` 获取延迟 getter，并在事件、异步方法或 `useEffect` 中调用
-- `useHttp` 已标记为弃用，建议优先使用 `useHttpClient`
-- 项目依赖 `react` 和 `rxjs`，使用前请确保版本兼容
-- 如果你只需要非常简单的全局 state，可能不必引入完整的 DI 组织方式
+- `createComponent(Component, providers)` 中 Provider 的顺序表示立即依赖顺序
+- 普通注入只能读取当前或祖先作用域中已经建立的 Provider
+- `{ lazy: true }` 返回 getter，只能在 Provider 提交后的调用期执行
+- `{ optional: true }` 可在 Provider 不存在时返回 `null`
+- Signal 是可调用读取函数，读取值需要使用 `count()`，而不是直接渲染函数本身
+- `render` 应用于真正需要 Signal 依赖追踪的局部视图，不建议包裹所有 JSX
+- 循环依赖应保持在调用期；如果初始化阶段必须互相读取，应该重新划分模块职责
 
 ## API 概览
 
-### 核心能力
+### DI
 
-- `createComponent`
-- `useInjector`
-- `useSignal`
-- `render`
-- `$`
-- `useComputed`
-- `useWatchEffect`
+#### `createComponent(Component, providers)`
 
-### 请求与数据流
+为组件创建 Provider 作用域。每个 Provider Hook 在独立的 React 组件中执行。
 
-- `useHttpClient`
-- `useHttp`
+#### `useInjector(provider, options?)`
+
+注入当前或祖先作用域中的 Provider。
+
+```ts
+const service = useInjector(useService);
+const service = useInjector(useService, { optional: true });
+const getService = useInjector(useService, { lazy: true });
+const getService = useInjector(useService, { lazy: true, optional: true });
+```
+
+可用选项：
+
+- `lazy`：返回延迟解析 getter
+- `optional`：未找到 Provider 时返回 `null`
+- `skipOne`：跳过当前注入层，从父级继续查找
+
+### Signal 与渲染
+
+- `useSignal(initialValue)`
+- `useComputed(compute)`
+- `useWatchEffect(callback)`
+- `render(callback)`
+- `$(signal, map?, placeholder?)`
+
+### HTTP 请求与分页
+
+- `useHttpClient`：直接在组件或其他 Hook 中调用，每次调用维护独立请求状态
 - `usePaging`
+- `useHttp`：已弃用，建议使用 `useHttpClient`
 
-### 通用辅助 Hook
+### 通用 Hook
 
 - `useRefState`
 - `useReady`
 - `useDestroy`
 - `useMounted`
-- `useSymbol`
+
+## 设计概要
+
+### Provider 层
+
+`createComponent` 将每个 Provider Hook 固定在独立组件中执行，使其生命周期遵循 React 组件规则。Provider 返回值通过嵌套 Context 向下暴露，注入时沿父级作用域查找。
+
+### Lazy Registry
+
+每个 `createComponent` 边界维护一个 Provider registry。Provider 完成提交后才会写入可供 lazy getter 读取的实例，避免中断渲染或未提交状态污染依赖关系。
+
+### Signal Collector
+
+Signal 依赖只在 `render`、`useComputed` 或 `useWatchEffect` 回调同步执行期间收集。收集状态使用栈管理，并在回调结束或抛出异常时立即清理，不依赖跨组件的全局活动 watcher。
 
 ## 项目结构
 
-- `packages/core/di`：依赖注入相关能力
-- `packages/core/signal`：响应式状态与共享数据能力
-- `packages/core/render`：render 依赖追踪与局部渲染能力
-- `packages/http`：请求与分页能力
-- `packages/common`：通用工具 Hook
-- `example`：示例代码
-
-## 依赖
-
-本库基于：
-
-- React 18
-- RxJS 7
+- `packages/core/di`：Provider、注入器和 lazy registry
+- `packages/core/signal`：Signal、Computed 与依赖收集
+- `packages/core/render`：Signal 局部渲染
+- `packages/http`：可直接使用的请求与分页 Hook
+- `packages/common`：通用 Hook
+- `example`：DI、循环依赖与动态 Signal 示例
 
 ## 许可证
 
